@@ -272,6 +272,15 @@ var TranslateAssistant = GObject.registerClass(
 
         _onSelectionChange(_a, selectionType, _b) {
             if (selectionType === Meta.SelectionType.SELECTION_CLIPBOARD) {
+                let now = GLib.get_monotonic_time();
+                if (this._lastSelectionTime && (now - this._lastSelectionTime) < 500000) {
+                    Clipboard.get_text(CLIPBOARD_TYPE, (_, fromText) => {
+                        if (fromText && fromText.trim() !== "") {
+                            this._triggerFloatingTranslation(fromText);
+                        }
+                    });
+                }
+                this._lastSelectionTime = now;
                 this._translateIfAutoPaste();
             }
         }
@@ -470,6 +479,95 @@ var TranslateAssistant = GObject.registerClass(
                     }
                 );
             }
+        }
+
+        _triggerFloatingTranslation(fromText) {
+            if (this._floatingWindow) {
+                this._floatingWindow.destroy();
+                this._floatingWindow = null;
+            }
+            this._translateTextIndependent(fromText, (toText) => {
+                if (toText && toText.trim() !== "") {
+                    if (this._destroyed) return;
+                    this._floatingWindow = new FloatingTranslationWindow(
+                        fromText,
+                        toText,
+                        this._source_lang,
+                        this._target_lang
+                    );
+                }
+            });
+        }
+
+        _translateTextIndependent(fromText, callback) {
+            if (!fromText || fromText.trim() === "") return;
+
+            const bodyObj = {
+                text: [fromText],
+                target_lang: this._target_lang,
+                split_sentences: this._split_sentences ? "1" : "0",
+                preserve_formatting: !!this._preserve_formatting,
+            };
+
+            if (this._source_lang) {
+                bodyObj.source_lang = this._source_lang;
+            }
+
+            if (this._formality && this._formality !== 'default') {
+                if (this._formality === 'more') {
+                    bodyObj.formality = 'prefer_more';
+                } else if (this._formality === 'less') {
+                    bodyObj.formality = 'prefer_less';
+                } else {
+                    bodyObj.formality = this._formality;
+                }
+            }
+
+            const body = JSON.stringify(bodyObj);
+            const bytes = new GLib.Bytes(body);
+
+            let message;
+            try {
+                message = Soup.Message.new('POST', this._url);
+                if (!message) throw new Error(_("Invalid URL"));
+            } catch (e) {
+                Main.notify("Translate Assistant", `${_("Error")}: ${e.message}`);
+                return;
+            }
+
+            message.request_headers.replace('Authorization', `DeepL-Auth-Key ${this._apikey}`);
+            message.set_request_body_from_bytes('application/json', bytes);
+            
+            if (this._destroyed || !this._httpSession) return;
+
+            this._httpSession.send_and_read_async(
+                message,
+                GLib.PRIORITY_DEFAULT,
+                null,
+                (session, result) => {
+                    if (this._destroyed) return;
+                    try {
+                        const resBytes = session.send_and_read_finish(result);
+                        if (this._destroyed) return;
+
+                        if (message.status_code === 200) {
+                            let decoder = new TextDecoder("utf-8");
+                            let response = decoder.decode(resBytes.get_data());
+                            let json = JSON.parse(response);
+                            let translations = json.translations;
+                            let toText = (translations && translations.length > 0) ? translations[0].text : "";
+                            callback(toText);
+                        } else if (message.status_code === 403) {
+                            Main.notify("Translate Assistant", _("Auth failed (403): check API key and URL in settings"));
+                        } else {
+                            Main.notify("Translate Assistant", `Error: ${message.status_code}`);
+                        }
+                    } catch (e) {
+                        if (this._destroyed) return;
+                        Main.notify("Translate Assistant", `Error: ${e.message || e}`);
+                    }
+                }
+            );
         }
 
         _showError(messageText) {
@@ -900,6 +998,10 @@ var TranslateAssistant = GObject.registerClass(
 
         destroy() {
             this._destroyed = true;
+            if (this._floatingWindow) {
+                this._floatingWindow.destroy();
+                this._floatingWindow = null;
+            }
             if (this.sourceSelector) {
                 this.sourceSelector.destroy();
                 this.sourceSelector = null;
@@ -941,3 +1043,155 @@ export default class TranslateAssistantExtension extends Extension {
         this._indicator = null;
     }
 }
+
+class FloatingTranslationWindow {
+    constructor(sourceText, targetText, sourceLang, targetLang) {
+        this.overlay = new St.Widget({
+            style_class: 'translate-floating-overlay',
+            reactive: true,
+            x: 0,
+            y: 0,
+            width: global.stage.width,
+            height: global.stage.height
+        });
+        Main.uiGroup.add_child(this.overlay);
+
+        this.overlay.connect('button-press-event', () => {
+            this.destroy();
+            return Clutter.EVENT_STOP;
+        });
+
+        this.actor = new St.BoxLayout({
+            style_class: 'translate-floating-window',
+            vertical: true,
+            reactive: true
+        });
+        Main.uiGroup.add_child(this.actor);
+
+        // Header Row (Title + Close Button)
+        let header = new St.BoxLayout({
+            vertical: false,
+            style_class: 'translate-floating-header'
+        });
+        
+        let titleText = `${formatLanguageLabel(sourceLang)}  ➜  ${formatLanguageLabel(targetLang)}`;
+        let title = new St.Label({
+            text: titleText,
+            style_class: 'translate-floating-title',
+            x_expand: true,
+            y_align: Clutter.ActorAlign.CENTER
+        });
+        header.add_child(title);
+
+        let closeBtn = new St.Button({
+            style_class: 'translate-floating-close-btn',
+            reactive: true
+        });
+        closeBtn.set_child(new St.Icon({
+            icon_name: 'window-close-symbolic',
+            style_class: 'translate-btn-icon'
+        }));
+        closeBtn.connect('clicked', () => this.destroy());
+        header.add_child(closeBtn);
+        this.actor.add_child(header);
+
+        // Divider
+        let divider = new St.Widget({
+            style_class: 'translate-floating-divider'
+        });
+        this.actor.add_child(divider);
+
+        // Source Text (scrollable)
+        let srcScroll = new St.ScrollView({
+            hscrollbar_policy: St.PolicyType.NEVER,
+            vscrollbar_policy: St.PolicyType.AUTOMATIC,
+            max_height: 120
+        });
+        let srcLabel = new St.Label({
+            text: sourceText,
+            style_class: 'translate-floating-text-src'
+        });
+        srcLabel.get_clutter_text().set_line_wrap(true);
+        srcLabel.get_clutter_text().set_line_wrap_mode(Pango.WrapMode.WORD_CHAR);
+        srcScroll.add_child(srcLabel);
+        this.actor.add_child(srcScroll);
+
+        // Divider 2
+        let divider2 = new St.Widget({
+            style_class: 'translate-floating-divider'
+        });
+        this.actor.add_child(divider2);
+
+        // Translated Text (scrollable)
+        let destScroll = new St.ScrollView({
+            hscrollbar_policy: St.PolicyType.NEVER,
+            vscrollbar_policy: St.PolicyType.AUTOMATIC,
+            max_height: 180
+        });
+        let destLabel = new St.Label({
+            text: targetText,
+            style_class: 'translate-floating-text-dest'
+        });
+        destLabel.get_clutter_text().set_line_wrap(true);
+        destLabel.get_clutter_text().set_line_wrap_mode(Pango.WrapMode.WORD_CHAR);
+        destScroll.add_child(destLabel);
+        this.actor.add_child(destScroll);
+
+        // Actions Row (Copy Button)
+        let actions = new St.BoxLayout({
+            vertical: false,
+            style_class: 'translate-floating-actions'
+        });
+        let copyBtn = new St.Button({
+            style_class: 'translate-action-btn',
+            reactive: true
+        });
+        copyBtn.set_child(new St.Icon({
+            icon_name: 'edit-copy-symbolic',
+            style_class: 'translate-btn-icon'
+        }));
+        
+        copyBtn.connect('clicked', () => {
+            St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, targetText);
+            this.destroy();
+        });
+        actions.add_child(copyBtn);
+        this.actor.add_child(actions);
+
+        // Center on primary monitor
+        let monitor = Main.layoutManager.primaryMonitor;
+        this.actor.connect('notify::allocation', () => {
+            let width = this.actor.get_width();
+            let height = this.actor.get_height();
+            let x = monitor.x + (monitor.width - width) / 2;
+            let y = monitor.y + (monitor.height - height) / 2;
+            this.actor.set_position(x, y);
+        });
+
+        // Key Press ID to close on Escape
+        this.keyPressId = global.stage.connect('key-press-event', (actor, event) => {
+            let symbol = event.get_key_symbol();
+            if (symbol === Clutter.KEY_Escape) {
+                this.destroy();
+                return Clutter.EVENT_STOP;
+            }
+            return Clutter.EVENT_PROPAGATE;
+        });
+    }
+
+    destroy() {
+        if (this.keyPressId) {
+            global.stage.disconnect(this.keyPressId);
+            this.keyPressId = null;
+        }
+        if (this.overlay) {
+            this.overlay.destroy();
+            this.overlay = null;
+        }
+        if (this.actor) {
+            this.actor.destroy();
+            this.actor = null;
+        }
+    }
+}
+
