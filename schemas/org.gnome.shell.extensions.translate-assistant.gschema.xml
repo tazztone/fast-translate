@@ -1,32 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist gettext-domain="translate-assistant@atareao.es">
     <enum id="org.gnome.shell.extensions.translate-assistant.source-lang">
-        <value value="0" nick="Bulgarian (BG)"/>
-        <value value="1" nick="Czech (CS)"/>
-        <value value="2" nick="Danish (DA)"/>
-        <value value="3" nick="German (DE)"/>
-        <value value="4" nick="Greek (EL)"/>
-        <value value="5" nick="English (EN)"/>
-        <value value="6" nick="Spanish (ES)"/>
-        <value value="7" nick="Estonian (ET)"/>
-        <value value="8" nick="Finnish (FI)"/>
-        <value value="9" nick="French (FR)"/>
-        <value value="10" nick="Hungarian (HU)"/>
-        <value value="11" nick="Indonesian (ID)"/>
-        <value value="12" nick="Italian (IT)"/>
-        <value value="13" nick="Japanese (JA)"/>
-        <value value="14" nick="Lithuanian (LT)"/>
-        <value value="15" nick="Latvian (LV)"/>
-        <value value="16" nick="Dutch (NL)"/>
-        <value value="17" nick="Polish (PL)"/>
-        <value value="18" nick="Portuguese (PT)"/>
-        <value value="19" nick="Romanian (RO)"/>
-        <value value="20" nick="Russian (RU)"/>
-        <value value="21" nick="Slovak (SK)"/>
-        <value value="22" nick="Slovenian (SL)"/>
-        <value value="23" nick="Swedish (SV)"/>
-        <value value="24" nick="Turkish (TR)"/>
-        <value value="25" nick="Chinese (ZH)"/>
+        <value value="0" nick="Auto (AUTO)"/>
+        <value value="1" nick="Bulgarian (BG)"/>
+        <value value="2" nick="Czech (CS)"/>
+        <value value="3" nick="Danish (DA)"/>
+        <value value="4" nick="German (DE)"/>
+        <value value="5" nick="Greek (EL)"/>
+        <value value="6" nick="English (EN)"/>
+        <value value="7" nick="Spanish (ES)"/>
+        <value value="8" nick="Estonian (ET)"/>
+        <value value="9" nick="Finnish (FI)"/>
+        <value value="10" nick="French (FR)"/>
+        <value value="11" nick="Hungarian (HU)"/>
+        <value value="12" nick="Indonesian (ID)"/>
+        <value value="13" nick="Italian (IT)"/>
+        <value value="14" nick="Japanese (JA)"/>
+        <value value="15" nick="Lithuanian (LT)"/>
+        <value value="16" nick="Latvian (LV)"/>
+        <value value="17" nick="Dutch (NL)"/>
+        <value value="18" nick="Polish (PL)"/>
+        <value value="19" nick="Portuguese (PT)"/>
+        <value value="20" nick="Romanian (RO)"/>
+        <value value="21" nick="Russian (RU)"/>
+        <value value="22" nick="Slovak (SK)"/>
+        <value value="23" nick="Slovenian (SL)"/>
+        <value value="24" nick="Swedish (SV)"/>
+        <value value="25" nick="Turkish (TR)"/>
+        <value value="26" nick="Chinese (ZH)"/>
     </enum>
     <enum id="org.gnome.shell.extensions.translate-assistant.target-lang">
         <value value="0" nick="Bulgarian (BG)"/>
@@ -66,7 +67,7 @@
 
     <schema path="/org/gnome/shell/extensions/translate-assistant/" id="org.gnome.shell.extensions.translate-assistant">
         <key name="source-lang" enum="org.gnome.shell.extensions.translate-assistant.source-lang">
-            <default>'English (EN)'</default>
+            <default>'Auto (AUTO)'</default>
             <summary>Source language</summary>
             <description>Language of the text to be translated</description>
         </key>

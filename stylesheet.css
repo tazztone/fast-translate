@@ -3,6 +3,7 @@
 .translate-container {
     padding: 8px;
     spacing: 10px;
+    min-height: 560px;
 }
 
 /* Language Selection Header */
@@ -151,8 +152,9 @@
 
 /* Selector Panel Styles */
 .translate-selector-scroll {
-    min-height: 280px;
-    max-height: 420px;
+    /* Fill the same vertical space as the hidden input+middle+output rows */
+    min-height: 480px;
+    max-height: 480px;
 }
 
 .translate-selector-box {

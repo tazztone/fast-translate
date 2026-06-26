@@ -391,7 +391,7 @@ var TranslateAssistant = GObject.registerClass(
                     preserve_formatting: !!this._preserve_formatting,
                 };
 
-                if (sourceLang) {
+                if (sourceLang && sourceLang !== 'AUTO') {
                     bodyObj.source_lang = sourceLang;
                 }
 
@@ -513,7 +513,7 @@ var TranslateAssistant = GObject.registerClass(
                 preserve_formatting: !!this._preserve_formatting,
             };
 
-            if (this._source_lang) {
+            if (this._source_lang && this._source_lang !== 'AUTO') {
                 bodyObj.source_lang = this._source_lang;
             }
 

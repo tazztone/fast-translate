@@ -50,6 +50,7 @@ export function buildRequestQuery(params) {
 export function getFlagEmoji(countryCode) {
     if (!countryCode) return "";
     let code = countryCode.toUpperCase();
+    if (code === 'AUTO') return "🌐";
     if (code.includes('-')) {
         code = code.split('-')[1];
     }
@@ -87,6 +88,7 @@ export function getFlagEmoji(countryCode) {
  */
 export function formatLanguageLabel(langCode) {
     if (!langCode) return "";
+    if (langCode.toUpperCase() === 'AUTO') return "🌐 Auto";
     const flag = getFlagEmoji(langCode);
     return flag ? `${flag} ${langCode}` : langCode;
 }
