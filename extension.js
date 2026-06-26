@@ -250,21 +250,17 @@ var TranslateAssistant = GObject.registerClass(
                     this.translateBtn.reactive = false;
                 }
 
-                let split_sentences = this._split_sentences ? "1" : "0";
-                let preserve_formatting = this._preserve_formatting ? "1" : "0";
-                let params = {
-                    auth_key: this._apikey,
-                    text: fromText,
+                // Build JSON body — DeepL deprecated form-body auth in Nov 2025
+                const body = JSON.stringify({
+                    text: [fromText],
                     source_lang: fromOrTo === true ? this._source_lang : this._target_lang,
                     target_lang: fromOrTo === true ? this._target_lang : this._source_lang,
-                    split_sentences: split_sentences,
-                    preserve_formatting: preserve_formatting,
+                    split_sentences: this._split_sentences ? "1" : "0",
+                    preserve_formatting: this._preserve_formatting ? "1" : "0",
                     formality: this._formality,
-                };
-                
-                const query = new URLSearchParams(params).toString();
-                const bytes = new GLib.Bytes(query);
-                
+                });
+                const bytes = new GLib.Bytes(body);
+
                 let message;
                 try {
                     message = Soup.Message.new('POST', this._url);
@@ -279,8 +275,10 @@ var TranslateAssistant = GObject.registerClass(
                     }
                     return;
                 }
-                
-                message.set_request_body_from_bytes('application/x-www-form-urlencoded', bytes);
+
+                // Header-based auth required by DeepL API v2
+                message.request_headers.replace('Authorization', `DeepL-Auth-Key ${this._apikey}`);
+                message.set_request_body_from_bytes('application/json', bytes);
                 
                 if (this._destroyed || !this._httpSession) {
                     if (this.translateBtn) {
@@ -318,7 +316,7 @@ var TranslateAssistant = GObject.registerClass(
                                 }
                                 callback(toText);
                             } else if (message.status_code === 403) {
-                                this._showError(_("Set API Key of DeepL"));
+                                this._showError(_("Auth failed (403): check API key and URL in settings"));
                             } else {
                                 this._showError(`Error: ${message.status_code}`);
                             }
