@@ -33,6 +33,7 @@ import Shell from "gi://Shell";
 import Soup from "gi://Soup?version=3.0";
 
 import { Extension, gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
+import { parseCountryCode, buildRequestQuery } from "./translation-helper.js";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
@@ -53,6 +54,7 @@ var TranslateAssistant = GObject.registerClass(
 
             this._destroyed = false;
             this._httpSession = new Soup.Session({ timeout: 10 });
+            this._cancellable = null;
 
             this._settingsChangedId = null;
             this._clipboardTimeoutId = null;
@@ -245,9 +247,10 @@ var TranslateAssistant = GObject.registerClass(
                 if (this.errorLabel) {
                     this.errorLabel.text = "";
                 }
+                
+                this._cancellable = new Gio.Cancellable();
                 if (this.translateBtn) {
-                    this.translateBtn.label = _("Translating...");
-                    this.translateBtn.reactive = false;
+                    this.translateBtn.label = _("Cancel");
                 }
 
                 // Build JSON body — DeepL deprecated form-body auth in Nov 2025
@@ -269,9 +272,9 @@ var TranslateAssistant = GObject.registerClass(
                     }
                 } catch (e) {
                     this._showError(`${_("Error")}: ${e.message}`);
+                    this._cancellable = null;
                     if (this.translateBtn) {
                         this.translateBtn.label = _("Translate");
-                        this.translateBtn.reactive = true;
                     }
                     return;
                 }
@@ -281,9 +284,9 @@ var TranslateAssistant = GObject.registerClass(
                 message.set_request_body_from_bytes('application/json', bytes);
                 
                 if (this._destroyed || !this._httpSession) {
+                    this._cancellable = null;
                     if (this.translateBtn) {
                         this.translateBtn.label = _("Translate");
-                        this.translateBtn.reactive = true;
                     }
                     return;
                 }
@@ -291,14 +294,14 @@ var TranslateAssistant = GObject.registerClass(
                 this._httpSession.send_and_read_async(
                     message,
                     GLib.PRIORITY_DEFAULT,
-                    null,
+                    this._cancellable,
                     (session, result) => {
                         if (this._destroyed) {
                             return;
                         }
+                        this._cancellable = null;
                         if (this.translateBtn) {
                             this.translateBtn.label = _("Translate");
-                            this.translateBtn.reactive = true;
                         }
                         try {
                             const resBytes = session.send_and_read_finish(result);
@@ -321,7 +324,12 @@ var TranslateAssistant = GObject.registerClass(
                                 this._showError(`Error: ${message.status_code}`);
                             }
                         } catch (e) {
-                            if (!this._destroyed) {
+                            if (this._destroyed) {
+                                return;
+                            }
+                            if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED) || e.code === Gio.IOErrorEnum.CANCELLED) {
+                                this._showError(_("Cancelled"));
+                            } else {
                                 this._showError(`Error: ${e.message || e}`);
                             }
                         }
@@ -339,13 +347,7 @@ var TranslateAssistant = GObject.registerClass(
         }
 
         _get_country_code(description) {
-            if (!description) return null;
-            const regex = /^[^(]*\(([^)]*)\)$/gm;
-            let m = regex.exec(description);
-            if (m && m.length > 1) {
-                return m[1];
-            }
-            return null;
+            return parseCountryCode(description);
         }
 
         _copyToClipboard(inText) {
@@ -374,11 +376,12 @@ var TranslateAssistant = GObject.registerClass(
                 text: this._source_lang || '',
                 style_class: 'translate-lang-label'
             });
-            let swapBtn = new St.Button({
+            this.swapBtn = new St.Button({
                 label: '⇄',
-                style_class: 'translate-swap-button'
+                style_class: 'translate-swap-button',
+                reactive: true
             });
-            swapBtn.connect('clicked', () => {
+            this.swapBtn.connect('clicked', () => {
                 const oldTargetLang = this._target_lang;
                 this._target_lang = this._source_lang;
                 this._source_lang = oldTargetLang;
@@ -396,7 +399,7 @@ var TranslateAssistant = GObject.registerClass(
                 style_class: 'translate-lang-label'
             });
             langRow.add_child(this.sourceLabel);
-            langRow.add_child(swapBtn);
+            langRow.add_child(this.swapBtn);
             langRow.add_child(this.targetLabel);
             container.add_child(langRow);
 
@@ -418,9 +421,19 @@ var TranslateAssistant = GObject.registerClass(
             this.inputEntry.get_clutter_text().set_activatable(true);
             
             let inputScroll = new St.ScrollView({
-                style_class: 'translate-scroll'
+                style_class: 'translate-scroll',
+                hscrollbar_policy: St.PolicyType.NEVER,
+                vscrollbar_policy: St.PolicyType.AUTOMATIC
             });
-            inputScroll.add_child(this.inputEntry);
+            let inputScrollBox = new St.BoxLayout({
+                vertical: true,
+                x_expand: true,
+                y_expand: true
+            });
+            this.inputEntry.x_expand = true;
+            this.inputEntry.y_expand = true;
+            inputScrollBox.add_child(this.inputEntry);
+            inputScroll.add_child(inputScrollBox);
             inputWrapper.add_child(inputScroll);
             
             // Input Action Row (Paste / Clear)
@@ -428,14 +441,15 @@ var TranslateAssistant = GObject.registerClass(
                 vertical: false,
                 style_class: 'translate-actions-row'
             });
-            let pasteBtn = new St.Button({
-                style_class: 'translate-action-btn'
+            this.pasteBtn = new St.Button({
+                style_class: 'translate-action-btn',
+                reactive: true
             });
-            pasteBtn.set_child(new St.Icon({
+            this.pasteBtn.set_child(new St.Icon({
                 icon_name: 'edit-paste-symbolic',
                 style_class: 'translate-btn-icon'
             }));
-            pasteBtn.connect('clicked', () => {
+            this.pasteBtn.connect('clicked', () => {
                 Clipboard.get_text(CLIPBOARD_TYPE, (_, inText) => {
                     if (inText && inText !== "") {
                         this.inputEntry.get_clutter_text().set_text(inText);
@@ -445,22 +459,23 @@ var TranslateAssistant = GObject.registerClass(
                     }
                 });
             });
-            let clearBtn = new St.Button({
-                style_class: 'translate-action-btn'
+            this.clearBtn = new St.Button({
+                style_class: 'translate-action-btn',
+                reactive: true
             });
-            clearBtn.set_child(new St.Icon({
+            this.clearBtn.set_child(new St.Icon({
                 icon_name: 'edit-clear-symbolic',
                 style_class: 'translate-btn-icon'
             }));
-            clearBtn.connect('clicked', () => {
+            this.clearBtn.connect('clicked', () => {
                 this.inputEntry.get_clutter_text().set_text("");
                 this.outputEntry.get_clutter_text().set_text("");
                 if (this.errorLabel) {
                     this.errorLabel.text = "";
                 }
             });
-            inputActions.add_child(pasteBtn);
-            inputActions.add_child(clearBtn);
+            inputActions.add_child(this.pasteBtn);
+            inputActions.add_child(this.clearBtn);
             inputWrapper.add_child(inputActions);
             
             container.add_child(inputWrapper);
@@ -473,10 +488,15 @@ var TranslateAssistant = GObject.registerClass(
             });
             this.translateBtn = new St.Button({
                 label: _("Translate"),
-                style_class: 'translate-submit-btn'
+                style_class: 'translate-submit-btn',
+                reactive: true
             });
             this.translateBtn.connect('clicked', () => {
-                this._triggerTranslation();
+                if (this._cancellable) {
+                    this._cancellable.cancel();
+                } else {
+                    this._triggerTranslation();
+                }
             });
             middleRow.add_child(this.translateBtn);
 
@@ -508,9 +528,19 @@ var TranslateAssistant = GObject.registerClass(
             this.outputEntry.get_clutter_text().set_editable(false);
             
             let outputScroll = new St.ScrollView({
-                style_class: 'translate-scroll'
+                style_class: 'translate-scroll',
+                hscrollbar_policy: St.PolicyType.NEVER,
+                vscrollbar_policy: St.PolicyType.AUTOMATIC
             });
-            outputScroll.add_child(this.outputEntry);
+            let outputScrollBox = new St.BoxLayout({
+                vertical: true,
+                x_expand: true,
+                y_expand: true
+            });
+            this.outputEntry.x_expand = true;
+            this.outputEntry.y_expand = true;
+            outputScrollBox.add_child(this.outputEntry);
+            outputScroll.add_child(outputScrollBox);
             outputWrapper.add_child(outputScroll);
 
             // Output Action Row (Copy)
@@ -518,34 +548,40 @@ var TranslateAssistant = GObject.registerClass(
                 vertical: false,
                 style_class: 'translate-actions-row'
             });
-            let copyBtn = new St.Button({
-                style_class: 'translate-action-btn'
+            this.copyBtn = new St.Button({
+                style_class: 'translate-action-btn',
+                reactive: true
             });
-            copyBtn.set_child(new St.Icon({
+            this.copyBtn.set_child(new St.Icon({
                 icon_name: 'edit-copy-symbolic',
                 style_class: 'translate-btn-icon'
             }));
-            copyBtn.connect('clicked', () => {
+            this.copyBtn.connect('clicked', () => {
                 let outText = this.outputEntry.get_clutter_text().get_text();
                 if (outText && outText !== "") {
                     this._copyToClipboard(outText);
                 }
             });
-            outputActions.add_child(copyBtn);
+            outputActions.add_child(this.copyBtn);
             outputWrapper.add_child(outputActions);
 
             container.add_child(outputWrapper);
 
             let menuItem = new PopupMenu.PopupBaseMenuItem({
-                reactive: false,
-                can_focus: false
+                reactive: true,
+                can_focus: true
             });
+            menuItem.actor.track_hover = false;
+            menuItem.actor.style_class = 'translate-menu-item-container';
             menuItem.add_child(container);
             return menuItem;
         }
 
         _triggerTranslation() {
             let fromText = this.inputEntry.get_clutter_text().get_text();
+            if (!fromText || fromText.trim() === "") {
+                return;
+            }
             this._translateText(true, fromText, (toText) => {
                 this.outputEntry.get_clutter_text().set_text(toText);
                 if (this.autoCopySwitch.state === true) {
