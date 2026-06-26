@@ -42,6 +42,19 @@ global.testRunnerPromise = (async () => {
         let mockSession = null;
         let mockMessage = null;
 
+        const Soup = imports.gi.Soup;
+        let interceptedBody = null;
+        const originalSetRequestBody = Soup.Message.prototype.set_request_body_from_bytes;
+        Soup.Message.prototype.set_request_body_from_bytes = function(contentType, bytes) {
+            try {
+                const data = bytes.get_data();
+                interceptedBody = typeof TextDecoder !== 'undefined' ? new TextDecoder().decode(data) : imports.byteArray.toString(data);
+            } catch (e) {
+                // Ignore conversion errors
+            }
+            return originalSetRequestBody.call(this, contentType, bytes);
+        };
+
         indicator._httpSession.send_and_read_async = function(message, priority, cancellable, callback) {
             mockMessage = message;
             mockSession = this;
@@ -52,10 +65,37 @@ global.testRunnerPromise = (async () => {
         indicator.inputEntry.get_clutter_text().set_text("Hello");
         indicator.translateBtn.emit('clicked', 0);
 
+        // Restore prototype method immediately
+        Soup.Message.prototype.set_request_body_from_bytes = originalSetRequestBody;
+
         // Verify button changed label to "Cancel"
         if (indicator.translateBtn.label !== "Cancel") {
             indicator._httpSession.send_and_read_async = originalSendReadAsync;
             return { success: false, error: "Translate button did not change to Cancel during operation" };
+        }
+
+        // Verify request payload schema
+        if (!interceptedBody) {
+            indicator._httpSession.send_and_read_async = originalSendReadAsync;
+            return { success: false, error: "Request body was not set via set_request_body_from_bytes" };
+        }
+
+        let bodyObj;
+        try {
+            bodyObj = JSON.parse(interceptedBody);
+        } catch (e) {
+            indicator._httpSession.send_and_read_async = originalSendReadAsync;
+            return { success: false, error: "Request body is not valid JSON: " + e.message };
+        }
+
+        if (typeof bodyObj.preserve_formatting !== 'boolean') {
+            indicator._httpSession.send_and_read_async = originalSendReadAsync;
+            return { success: false, error: "preserve_formatting is not a boolean: " + typeof bodyObj.preserve_formatting };
+        }
+
+        if (bodyObj.formality && bodyObj.formality === 'default') {
+            indicator._httpSession.send_and_read_async = originalSendReadAsync;
+            return { success: false, error: "formality should be omitted when set to default" };
         }
 
         // Complete the mock request

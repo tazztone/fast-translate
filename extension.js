@@ -254,14 +254,31 @@ var TranslateAssistant = GObject.registerClass(
                 }
 
                 // Build JSON body — DeepL deprecated form-body auth in Nov 2025
-                const body = JSON.stringify({
+                const targetLang = fromOrTo === true ? this._target_lang : this._source_lang;
+                const sourceLang = fromOrTo === true ? this._source_lang : this._target_lang;
+
+                const bodyObj = {
                     text: [fromText],
-                    source_lang: fromOrTo === true ? this._source_lang : this._target_lang,
-                    target_lang: fromOrTo === true ? this._target_lang : this._source_lang,
+                    target_lang: targetLang,
                     split_sentences: this._split_sentences ? "1" : "0",
-                    preserve_formatting: this._preserve_formatting ? "1" : "0",
-                    formality: this._formality,
-                });
+                    preserve_formatting: !!this._preserve_formatting,
+                };
+
+                if (sourceLang) {
+                    bodyObj.source_lang = sourceLang;
+                }
+
+                if (this._formality && this._formality !== 'default') {
+                    if (this._formality === 'more') {
+                        bodyObj.formality = 'prefer_more';
+                    } else if (this._formality === 'less') {
+                        bodyObj.formality = 'prefer_less';
+                    } else {
+                        bodyObj.formality = this._formality;
+                    }
+                }
+
+                const body = JSON.stringify(bodyObj);
                 const bytes = new GLib.Bytes(body);
 
                 let message;
