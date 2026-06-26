@@ -184,6 +184,216 @@ global.testRunnerPromise = (async () => {
             return { success: false, error: "Translate button did not reset to Translate after cancellation" };
         }
 
+        // Test 6: Toggle inline language selectors
+        try {
+            indicator._toggleLanguageSelector(true, true);
+            indicator._toggleLanguageSelector(true, false);
+            indicator._toggleLanguageSelector(false, true);
+            indicator._toggleLanguageSelector(false, false);
+        } catch (e) {
+            indicator._httpSession.send_and_read_async = originalSendReadAsync;
+            indicator._httpSession.send_and_read_finish = originalSendReadFinish;
+            return { success: false, error: "Failed to toggle language selector: " + e.message };
+        }
+
+        // Test 7: Instantiate FloatingTranslationWindow
+        try {
+            let FloatingTranslationWindow = indicator.FloatingTranslationWindow;
+            let win = new FloatingTranslationWindow("Hello World", "Bonjour le monde", "EN", "FR");
+            if (!win.actor || !win.overlay) {
+                indicator._httpSession.send_and_read_async = originalSendReadAsync;
+                indicator._httpSession.send_and_read_finish = originalSendReadFinish;
+                return { success: false, error: "FloatingTranslationWindow missing overlay or actor" };
+            }
+            win.destroy();
+        } catch (e) {
+            indicator._httpSession.send_and_read_async = originalSendReadAsync;
+            indicator._httpSession.send_and_read_finish = originalSendReadFinish;
+            return { success: false, error: "Failed to instantiate FloatingTranslationWindow: " + e.message };
+        }
+
+        // Test 8: Double-copy shortcut simulation
+        const St = imports.gi.St;
+        const Meta = imports.gi.Meta;
+        const GLib = imports.gi.GLib;
+        const Clipboard = St.Clipboard.get_default();
+
+        const originalClipboardGetText = Clipboard.get_text;
+        const originalClipboardSetText = Clipboard.set_text;
+        let mockClipboardText = "";
+
+        // Mock clipboard get_text to return our mock text
+        Clipboard.get_text = function(type, callback) {
+            callback(Clipboard, mockClipboardText);
+        };
+
+        // Mock _translateTextIndependent to avoid real HTTP requests
+        const originalTranslateTextIndependent = indicator._translateTextIndependent;
+        let independentTranslationText = "";
+        let independentTranslationCallback = null;
+        indicator._translateTextIndependent = function(fromText, callback) {
+            independentTranslationText = fromText;
+            independentTranslationCallback = callback;
+        };
+
+        try {
+            // First copy
+            mockClipboardText = "Double Copy Test input text";
+            indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null);
+            
+            // Check that the floating window is NOT created yet
+            if (indicator._floatingWindow) {
+                Clipboard.get_text = originalClipboardGetText;
+                Clipboard.set_text = originalClipboardSetText;
+                indicator._translateTextIndependent = originalTranslateTextIndependent;
+                return { success: false, error: "Floating window was created on a single copy!" };
+            }
+
+            // Simulate second copy immediately (less than 500ms monotonic time delta)
+            indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null);
+
+            // Verify that _translateTextIndependent was triggered
+            if (independentTranslationText !== "Double Copy Test input text" || !independentTranslationCallback) {
+                Clipboard.get_text = originalClipboardGetText;
+                Clipboard.set_text = originalClipboardSetText;
+                indicator._translateTextIndependent = originalTranslateTextIndependent;
+                return { success: false, error: "Double-copy did not trigger independent translation!" };
+            }
+
+            // Call the callback to simulate translation completing
+            independentTranslationCallback("Double Copy Test translated text");
+
+            // Verify floating window is created
+            if (!indicator._floatingWindow) {
+                Clipboard.get_text = originalClipboardGetText;
+                Clipboard.set_text = originalClipboardSetText;
+                indicator._translateTextIndependent = originalTranslateTextIndependent;
+                return { success: false, error: "Floating window was not created after double copy translation completed!" };
+            }
+
+            // Verify contents of the floating window
+            let floatWin = indicator._floatingWindow;
+            if (!floatWin.actor || !floatWin.overlay) {
+                Clipboard.get_text = originalClipboardGetText;
+                Clipboard.set_text = originalClipboardSetText;
+                indicator._translateTextIndependent = originalTranslateTextIndependent;
+                return { success: false, error: "Floating window structure is invalid!" };
+            }
+
+            // Verify children layout and close button click
+            let children = floatWin.actor.get_children();
+            if (children.length < 6) {
+                Clipboard.get_text = originalClipboardGetText;
+                Clipboard.set_text = originalClipboardSetText;
+                indicator._translateTextIndependent = originalTranslateTextIndependent;
+                return { success: false, error: "Floating window actor has insufficient children: " + children.length };
+            }
+
+            let closeBtn = children[0].get_children()[1];
+            if (!(closeBtn instanceof St.Button)) {
+                Clipboard.get_text = originalClipboardGetText;
+                Clipboard.set_text = originalClipboardSetText;
+                indicator._translateTextIndependent = originalTranslateTextIndependent;
+                return { success: false, error: "Close button not found at expected layout position" };
+            }
+
+            // Verify copy button copies the text and destroys the window
+            let copyBtn = children[5].get_children()[0];
+            if (!(copyBtn instanceof St.Button)) {
+                Clipboard.get_text = originalClipboardGetText;
+                Clipboard.set_text = originalClipboardSetText;
+                indicator._translateTextIndependent = originalTranslateTextIndependent;
+                return { success: false, error: "Copy button not found at expected layout position" };
+            }
+
+            let copiedText = "";
+            Clipboard.set_text = function(type, text) {
+                copiedText = text;
+            };
+
+            copyBtn.emit('clicked', 0);
+            if (copiedText !== "Double Copy Test translated text") {
+                Clipboard.get_text = originalClipboardGetText;
+                Clipboard.set_text = originalClipboardSetText;
+                indicator._translateTextIndependent = originalTranslateTextIndependent;
+                return { success: false, error: "Copy button did not copy targetText! Got: " + copiedText };
+            }
+
+            if (indicator._floatingWindow) {
+                Clipboard.get_text = originalClipboardGetText;
+                Clipboard.set_text = originalClipboardSetText;
+                indicator._translateTextIndependent = originalTranslateTextIndependent;
+                return { success: false, error: "Floating window was not destroyed after clicking Copy button!" };
+            }
+
+        } catch (e) {
+            Clipboard.get_text = originalClipboardGetText;
+            Clipboard.set_text = originalClipboardSetText;
+            indicator._translateTextIndependent = originalTranslateTextIndependent;
+            if (indicator._floatingWindow) {
+                indicator._floatingWindow.destroy();
+                indicator._floatingWindow = null;
+            }
+            return { success: false, error: "Double-copy shortcut test failed: " + e.message };
+        } finally {
+            Clipboard.get_text = originalClipboardGetText;
+            Clipboard.set_text = originalClipboardSetText;
+            indicator._translateTextIndependent = originalTranslateTextIndependent;
+        }
+
+        // Test 9: FloatingTranslationWindow layout, centering, and Escape key handler
+        try {
+            let FloatingTranslationWindow = indicator.FloatingTranslationWindow;
+            let win = new FloatingTranslationWindow("Input text", "Output text", "EN", "FR", () => {
+                indicator._floatingWindow = null;
+            });
+
+            // Verify initial overlay and actor properties
+            if (win.overlay.style_class !== 'translate-floating-overlay') {
+                win.destroy();
+                return { success: false, error: "Overlay style class is incorrect" };
+            }
+            if (win.actor.style_class !== 'translate-floating-window') {
+                win.destroy();
+                return { success: false, error: "Actor style class is incorrect" };
+            }
+
+            // Simulate allocation event to trigger centering logic
+            win.actor.notify('allocation');
+
+            let monitor = Main.layoutManager.primaryMonitor;
+            let expectedX = monitor.x + (monitor.width - win.actor.get_width()) / 2;
+            let expectedY = monitor.y + (monitor.height - win.actor.get_height()) / 2;
+            if (win.actor.x !== expectedX || win.actor.y !== expectedY) {
+                win.destroy();
+                return { success: false, error: "FloatingTranslationWindow was not centered correctly! Expected: " + expectedX + "," + expectedY + " Got: " + win.actor.x + "," + win.actor.y };
+            }
+
+            // Verify escape key event destroys the window
+            let Clutter = imports.gi.Clutter;
+            let mockEvent = {
+                get_key_symbol: () => Clutter.KEY_Escape
+            };
+
+            // Set win to a property so we can track it or destroy it
+            indicator._floatingWindow = win;
+
+            // Trigger the keypress handler directly
+            win._onKeyPress(global.stage, mockEvent);
+
+            if (indicator._floatingWindow) {
+                indicator._floatingWindow.destroy();
+                indicator._floatingWindow = null;
+                return { success: false, error: "Escape key did not destroy FloatingTranslationWindow!" };
+            }
+        } catch (e) {
+            if (indicator._floatingWindow) {
+                indicator._floatingWindow.destroy();
+                indicator._floatingWindow = null;
+            }
+            return { success: false, error: "FloatingTranslationWindow centering/Escape test failed: " + e.message };
+        }
+
         // Restore mock functions
         indicator._httpSession.send_and_read_async = originalSendReadAsync;
         indicator._httpSession.send_and_read_finish = originalSendReadFinish;

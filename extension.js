@@ -145,6 +145,7 @@ var TranslateAssistant = GObject.registerClass(
             this._httpSession = new Soup.Session({ timeout: 10 });
             this._cancellable = null;
             this._tooltips = [];
+            this.FloatingTranslationWindow = FloatingTranslationWindow;
 
             this._settingsChangedId = null;
             this._clipboardTimeoutId = null;
@@ -493,7 +494,10 @@ var TranslateAssistant = GObject.registerClass(
                         fromText,
                         toText,
                         this._source_lang,
-                        this._target_lang
+                        this._target_lang,
+                        () => {
+                            this._floatingWindow = null;
+                        }
                     );
                 }
             });
@@ -1045,7 +1049,8 @@ export default class TranslateAssistantExtension extends Extension {
 }
 
 class FloatingTranslationWindow {
-    constructor(sourceText, targetText, sourceLang, targetLang) {
+    constructor(sourceText, targetText, sourceLang, targetLang, onDestroy) {
+        this._onDestroy = onDestroy;
         this.overlay = new St.Widget({
             style_class: 'translate-floating-overlay',
             reactive: true,
@@ -1107,13 +1112,19 @@ class FloatingTranslationWindow {
             vscrollbar_policy: St.PolicyType.AUTOMATIC,
             style_class: 'translate-floating-src-scroll'
         });
+        let srcBox = new St.BoxLayout({
+            vertical: true,
+            x_expand: true,
+            y_expand: true
+        });
         let srcLabel = new St.Label({
             text: sourceText,
             style_class: 'translate-floating-text-src'
         });
         srcLabel.get_clutter_text().set_line_wrap(true);
         srcLabel.get_clutter_text().set_line_wrap_mode(Pango.WrapMode.WORD_CHAR);
-        srcScroll.add_child(srcLabel);
+        srcBox.add_child(srcLabel);
+        srcScroll.add_child(srcBox);
         this.actor.add_child(srcScroll);
 
         // Divider 2
@@ -1128,13 +1139,19 @@ class FloatingTranslationWindow {
             vscrollbar_policy: St.PolicyType.AUTOMATIC,
             style_class: 'translate-floating-dest-scroll'
         });
+        let destBox = new St.BoxLayout({
+            vertical: true,
+            x_expand: true,
+            y_expand: true
+        });
         let destLabel = new St.Label({
             text: targetText,
             style_class: 'translate-floating-text-dest'
         });
         destLabel.get_clutter_text().set_line_wrap(true);
         destLabel.get_clutter_text().set_line_wrap_mode(Pango.WrapMode.WORD_CHAR);
-        destScroll.add_child(destLabel);
+        destBox.add_child(destLabel);
+        destScroll.add_child(destBox);
         this.actor.add_child(destScroll);
 
         // Actions Row (Copy Button)
@@ -1170,14 +1187,16 @@ class FloatingTranslationWindow {
         });
 
         // Key Press ID to close on Escape
-        this.keyPressId = global.stage.connect('key-press-event', (actor, event) => {
-            let symbol = event.get_key_symbol();
-            if (symbol === Clutter.KEY_Escape) {
-                this.destroy();
-                return Clutter.EVENT_STOP;
-            }
-            return Clutter.EVENT_PROPAGATE;
-        });
+        this.keyPressId = global.stage.connect('key-press-event', this._onKeyPress.bind(this));
+    }
+
+    _onKeyPress(actor, event) {
+        let symbol = event.get_key_symbol();
+        if (symbol === Clutter.KEY_Escape) {
+            this.destroy();
+            return Clutter.EVENT_STOP;
+        }
+        return Clutter.EVENT_PROPAGATE;
     }
 
     destroy() {
@@ -1192,6 +1211,10 @@ class FloatingTranslationWindow {
         if (this.actor) {
             this.actor.destroy();
             this.actor = null;
+        }
+        if (this._onDestroy) {
+            this._onDestroy();
+            this._onDestroy = null;
         }
     }
 }
