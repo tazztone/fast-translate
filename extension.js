@@ -51,6 +51,9 @@ var TranslateAssistant = GObject.registerClass(
             this._extension = extension;
             this._settings = extension.getSettings();
 
+            this._destroyed = false;
+            this._httpSession = new Soup.Session({ timeout: 10 });
+
             this._settingsChangedId = null;
             this._clipboardTimeoutId = null;
             this._selectionOwnerChangedId = null;
@@ -61,6 +64,16 @@ var TranslateAssistant = GObject.registerClass(
             box.add_child(this.icon);
             this.add_child(box);
 
+            this._source_lang = this._get_country_code(this._getValue('source-lang'));
+            this._target_lang = this._get_country_code(this._getValue('target-lang'));
+
+            /* Translation block */
+            this.menu.addMenuItem(this._menuTranslationBlock());
+
+            /* Separator */
+            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
+            /* Toggles at the bottom */
             this.autoPasteSwitch = new PopupMenu.PopupSwitchMenuItem(
                 _('Auto Paste'), this._getValue("auto-paste"), {});
             this.menu.addMenuItem(this.autoPasteSwitch);
@@ -83,15 +96,6 @@ var TranslateAssistant = GObject.registerClass(
                 this._settings.set_boolean('auto-copy', state);
             });
 
-            this._source_lang = this._get_country_code(this._getValue('source-lang'));
-            this._target_lang = this._get_country_code(this._getValue('target-lang'));
-
-            /* Separator */
-            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-            this.menu.addMenuItem(this._menuInput());
-            this.menu.addMenuItem(this._menuIcons());
-            this.menu.addMenuItem(this._menuOutput());
-
             /* Separator */
             this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
@@ -113,8 +117,8 @@ var TranslateAssistant = GObject.registerClass(
         }
 
         _setupListener() {
-            const metaDisplay = Shell.Global.get().get_display();
-            if (typeof metaDisplay.get_selection === 'function') {
+            const metaDisplay = global.display;
+            if (metaDisplay && typeof metaDisplay.get_selection === 'function') {
                 const selection = metaDisplay.get_selection();
                 this._setupSelectionTracking(selection);
             } else {
@@ -223,13 +227,10 @@ var TranslateAssistant = GObject.registerClass(
                 Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
                 () => {
                     Clipboard.get_text(CLIPBOARD_TYPE, (_, fromText) => {
-                        this.inputEntry.get_clutter_text().set_text(fromText);
-                        this._translateText(true, fromText, (toText) => {
-                            this.outputEntry.get_clutter_text().set_text(toText);
-                            if (this.autoCopySwitch.state === true) {
-                                this._copyToClipboard(toText);
-                            }
-                        });
+                        if (fromText && fromText !== "") {
+                            this.inputEntry.get_clutter_text().set_text(fromText);
+                            this._triggerTranslation();
+                        }
                     });
                 }
             );
@@ -255,17 +256,37 @@ var TranslateAssistant = GObject.registerClass(
                 
                 const query = new URLSearchParams(params).toString();
                 const bytes = new GLib.Bytes(query);
-                const message = Soup.Message.new('POST', this._url);
+                
+                let message;
+                try {
+                    message = Soup.Message.new('POST', this._url);
+                    if (!message) {
+                        throw new Error(_("Invalid URL"));
+                    }
+                } catch (e) {
+                    Main.notify("Translate Assistant", `${_("Error")}: ${e.message}`);
+                    return;
+                }
+                
                 message.set_request_body_from_bytes('application/x-www-form-urlencoded', bytes);
                 
-                let session = new Soup.Session();
-                session.send_and_read_async(
+                if (this._destroyed || !this._httpSession) {
+                    return;
+                }
+
+                this._httpSession.send_and_read_async(
                     message,
                     GLib.PRIORITY_DEFAULT,
                     null,
                     (session, result) => {
+                        if (this._destroyed) {
+                            return;
+                        }
                         try {
                             const resBytes = session.send_and_read_finish(result);
+                            if (this._destroyed) {
+                                return;
+                            }
                             if (message.status_code === 200) {
                                 let decoder = new TextDecoder("utf-8");
                                 let response = decoder.decode(resBytes.get_data());
@@ -282,7 +303,9 @@ var TranslateAssistant = GObject.registerClass(
                                 Main.notify("Translate Assistant", `Error: ${message.status_code}`);
                             }
                         } catch (e) {
-                            Main.notify("Translate Assistant", `Error: ${e}`);
+                            if (!this._destroyed) {
+                                Main.notify("Translate Assistant", `Error: ${e}`);
+                            }
                         }
                     }
                 );
@@ -299,165 +322,6 @@ var TranslateAssistant = GObject.registerClass(
             return null;
         }
 
-        _menuIconsOut() {
-            let boxOut = new St.BoxLayout({
-                vertical: false,
-                x_expand: true,
-                trackHover: false,
-                canFocus: false
-            });
-            let buttonCopyToClipboardOut = new St.Button({
-                label: _("Copy"),
-                x_expand: true,
-                x_align: Clutter.ActorAlign.CENTER,
-                reactive: true,
-                margin_left: 10,
-                margin_right: 10,
-                style_class: "translate-assistant-button"
-            });
-            buttonCopyToClipboardOut.connect('clicked', () => {
-                let inText = this.outputEntry.get_clutter_text().get_text();
-                if (inText && inText !== "") {
-                    this._copyToClipboard(inText);
-                }
-            });
-            boxOut.add_child(buttonCopyToClipboardOut);
-            let buttonPasteFromClipboardOut = new St.Button({
-                label: _("Paste"),
-                x_expand: true,
-                x_align: Clutter.ActorAlign.CENTER,
-                reactive: true,
-                margin_left: 10,
-                margin_right: 10,
-                style_class: "translate-assistant-button"
-            });
-            buttonPasteFromClipboardOut.connect('clicked', () => {
-                Clipboard.get_text(CLIPBOARD_TYPE, (_, inText) => {
-                    if (inText && inText !== "") {
-                        this._copyToClipboard(inText);
-                    }
-                });
-            });
-            boxOut.add_child(buttonPasteFromClipboardOut);
-
-            let iconsMenuItemOut = new PopupMenu.PopupBaseMenuItem({});
-            iconsMenuItemOut.add_child(boxOut);
-            return iconsMenuItemOut;
-        }
-
-        _menuIconsIn() {
-            let boxIn = new St.BoxLayout({
-                vertical: false,
-                x_expand: true,
-                trackHover: false,
-                canFocus: false
-            });
-            let buttonCopyToClipboardIn = new St.Button({
-                label: _("Copy"),
-                x_expand: true,
-                x_align: Clutter.ActorAlign.CENTER,
-                reactive: true,
-                margin_left: 10,
-                margin_right: 10,
-                style_class: "translate-assistant-button"
-            });
-            buttonCopyToClipboardIn.connect('clicked', () => {
-                let inText = this.inputEntry.get_clutter_text().get_text();
-                if (inText && inText !== "") {
-                    this._copyToClipboard(inText);
-                }
-            });
-            boxIn.add_child(buttonCopyToClipboardIn);
-            let buttonPasteFromClipboardIn = new St.Button({
-                label: _("Paste"),
-                x_expand: true,
-                x_align: Clutter.ActorAlign.CENTER,
-                reactive: true,
-                margin_left: 10,
-                margin_right: 10,
-                style_class: "translate-assistant-button"
-            });
-            buttonPasteFromClipboardIn.connect('clicked', () => {
-                Clipboard.get_text(CLIPBOARD_TYPE, (_, inText) => {
-                    if (inText && inText !== "") {
-                        this.inputEntry.get_clutter_text().set_text(inText);
-                    }
-                });
-            });
-            boxIn.add_child(buttonPasteFromClipboardIn);
-
-            let iconsMenuItemIn = new PopupMenu.PopupBaseMenuItem({});
-            iconsMenuItemIn.add_child(boxIn);
-            return iconsMenuItemIn;
-        }
-
-        _menuIcons() {
-            let box = new St.BoxLayout({
-                vertical: false,
-                x_expand: true,
-                trackHover: false,
-                canFocus: false
-            });
-            let buttonRevert = new St.Button({
-                label: _("🗘"),
-                x_expand: true,
-                x_align: Clutter.ActorAlign.CENTER,
-                reactive: true,
-                margin_left: 10,
-                margin_right: 10,
-                style_class: "translate-assistant-button"
-            });
-            buttonRevert.connect('clicked', () => {
-                const oldTargetLang = this._target_lang;
-                this._target_lang = this._source_lang;
-                this._source_lang = oldTargetLang;
-                this.menuInputExpander.label.text = this._source_lang;
-                this.menuOutputExpander.label.text = this._target_lang;
-            });
-            box.add_child(buttonRevert);
-            let buttonTranslateFrom = new St.Button({
-                label: "⌄",
-                x_expand: true,
-                x_align: Clutter.ActorAlign.CENTER,
-                reactive: true,
-                margin_left: 10,
-                margin_right: 10,
-                style_class: "translate-assistant-button"
-            });
-            buttonTranslateFrom.connect('clicked', () => {
-                let fromText = this.inputEntry.get_clutter_text().get_text();
-                this._translateText(true, fromText, (toText) => {
-                    this.outputEntry.get_clutter_text().set_text(toText);
-                    if (this.autoCopySwitch.state === true) {
-                        this._copyToClipboard(toText);
-                    }
-                });
-            });
-            box.add_child(buttonTranslateFrom);
-            let buttonTranslate = new St.Button({
-                label: "⌃",
-                x_expand: true,
-                x_align: Clutter.ActorAlign.CENTER,
-                reactive: true,
-                margin_left: 10,
-                margin_right: 10,
-                style_class: "translate-assistant-button"
-            });
-            buttonTranslate.connect('clicked', () => {
-                let fromText = this.outputEntry.get_clutter_text().get_text();
-                this._translateText(false, fromText, (toText) => {
-                    this.inputEntry.get_clutter_text().set_text(toText);
-                    if (this.autoCopySwitch.state === true) {
-                        this._copyToClipboard(toText);
-                    }
-                });
-            });
-            box.add_child(buttonTranslate);
-            let iconsMenuItem = new PopupMenu.PopupBaseMenuItem({});
-            iconsMenuItem.add_child(box);
-            return iconsMenuItem;
-        }
-
         _copyToClipboard(inText) {
             if (this.autoPasteSwitch.state === true) {
                 this.autoPasteSwitch.setToggleState(false);
@@ -468,10 +332,57 @@ var TranslateAssistant = GObject.registerClass(
             }
         }
 
-        _menuInput() {
+        _menuTranslationBlock() {
+            let container = new St.BoxLayout({
+                vertical: true,
+                style_class: 'translate-container'
+            });
+
+            // 1. Language Row
+            let langRow = new St.BoxLayout({
+                vertical: false,
+                style_class: 'translate-lang-row',
+                x_align: Clutter.ActorAlign.CENTER
+            });
+            this.sourceLabel = new St.Label({
+                text: this._source_lang || '',
+                style_class: 'translate-lang-label'
+            });
+            let swapBtn = new St.Button({
+                label: '⇄',
+                style_class: 'translate-swap-button'
+            });
+            swapBtn.connect('clicked', () => {
+                const oldTargetLang = this._target_lang;
+                this._target_lang = this._source_lang;
+                this._source_lang = oldTargetLang;
+                this.sourceLabel.text = this._source_lang || '';
+                this.targetLabel.text = this._target_lang || '';
+                
+                // Swap text in entry boxes
+                let inText = this.inputEntry.get_clutter_text().get_text();
+                let outText = this.outputEntry.get_clutter_text().get_text();
+                this.inputEntry.get_clutter_text().set_text(outText);
+                this.outputEntry.get_clutter_text().set_text(inText);
+            });
+            this.targetLabel = new St.Label({
+                text: this._target_lang || '',
+                style_class: 'translate-lang-label'
+            });
+            langRow.add_child(this.sourceLabel);
+            langRow.add_child(swapBtn);
+            langRow.add_child(this.targetLabel);
+            container.add_child(langRow);
+
+            // 2. Input Box
+            let inputWrapper = new St.BoxLayout({
+                vertical: true,
+                style_class: 'translate-entry-wrapper'
+            });
             this.inputEntry = new St.Entry({
                 name: 'inputEntry',
-                style_class: 'entry',
+                style_class: 'translate-entry',
+                hint_text: _('Type or paste text...'),
                 can_focus: true,
                 track_hover: true
             });
@@ -479,25 +390,71 @@ var TranslateAssistant = GObject.registerClass(
             this.inputEntry.get_clutter_text().set_line_wrap_mode(Pango.WrapMode.WORD_CHAR);
             this.inputEntry.get_clutter_text().set_single_line_mode(false);
             this.inputEntry.get_clutter_text().set_activatable(true);
-            let box = new St.BoxLayout({
-                vertical: true,
+            
+            let inputScroll = new St.ScrollView({
+                style_class: 'translate-scroll'
             });
-            box.add_child(this.inputEntry);
-            let scroll = new St.ScrollView({
-                width: 300,
-                height: 300
+            inputScroll.add_child(this.inputEntry);
+            inputWrapper.add_child(inputScroll);
+            
+            // Input Action Row (Paste / Clear)
+            let inputActions = new St.BoxLayout({
+                vertical: false,
+                style_class: 'translate-actions-row'
             });
-            scroll.add_child(box);
-            this.menuInputExpander = new PopupMenu.PopupSubMenuMenuItem(this._source_lang);
-            this.menuInputExpander.menu.box.add_child(scroll);
-            this.menuInputExpander.menu.box.add_child(this._menuIconsIn());
-            return this.menuInputExpander;
-        }
+            let pasteBtn = new St.Button({
+                label: _("Paste"),
+                style_class: 'translate-action-btn'
+            });
+            pasteBtn.connect('clicked', () => {
+                Clipboard.get_text(CLIPBOARD_TYPE, (_, inText) => {
+                    if (inText && inText !== "") {
+                        this.inputEntry.get_clutter_text().set_text(inText);
+                        if (this.autoTranslateSwitch.state === true) {
+                            this._triggerTranslation();
+                        }
+                    }
+                });
+            });
+            let clearBtn = new St.Button({
+                label: _("Clear"),
+                style_class: 'translate-action-btn'
+            });
+            clearBtn.connect('clicked', () => {
+                this.inputEntry.get_clutter_text().set_text("");
+                this.outputEntry.get_clutter_text().set_text("");
+            });
+            inputActions.add_child(pasteBtn);
+            inputActions.add_child(clearBtn);
+            inputWrapper.add_child(inputActions);
+            
+            container.add_child(inputWrapper);
 
-        _menuOutput() {
+            // 3. Middle Action Row (Translate Button)
+            let middleRow = new St.BoxLayout({
+                vertical: false,
+                style_class: 'translate-middle-row',
+                x_align: Clutter.ActorAlign.CENTER
+            });
+            let translateBtn = new St.Button({
+                label: _("Translate"),
+                style_class: 'translate-submit-btn'
+            });
+            translateBtn.connect('clicked', () => {
+                this._triggerTranslation();
+            });
+            middleRow.add_child(translateBtn);
+            container.add_child(middleRow);
+
+            // 4. Output Box
+            let outputWrapper = new St.BoxLayout({
+                vertical: true,
+                style_class: 'translate-entry-wrapper'
+            });
             this.outputEntry = new St.Entry({
                 name: 'outputEntry',
-                style_class: 'entry',
+                style_class: 'translate-entry read-only',
+                hint_text: _('Translation will appear here...'),
                 can_focus: true,
                 track_hover: true
             });
@@ -505,19 +462,49 @@ var TranslateAssistant = GObject.registerClass(
             this.outputEntry.get_clutter_text().set_line_wrap_mode(Pango.WrapMode.WORD_CHAR);
             this.outputEntry.get_clutter_text().set_single_line_mode(false);
             this.outputEntry.get_clutter_text().set_activatable(true);
-            let box = new St.BoxLayout({
-                vertical: true,
+            
+            let outputScroll = new St.ScrollView({
+                style_class: 'translate-scroll'
             });
-            box.add_child(this.outputEntry);
-            let scroll = new St.ScrollView({
-                width: 300,
-                height: 300
+            outputScroll.add_child(this.outputEntry);
+            outputWrapper.add_child(outputScroll);
+
+            // Output Action Row (Copy)
+            let outputActions = new St.BoxLayout({
+                vertical: false,
+                style_class: 'translate-actions-row'
             });
-            scroll.add_child(box);
-            this.menuOutputExpander = new PopupMenu.PopupSubMenuMenuItem(this._target_lang);
-            this.menuOutputExpander.menu.box.add_child(scroll);
-            this.menuOutputExpander.menu.box.add_child(this._menuIconsOut());
-            return this.menuOutputExpander;
+            let copyBtn = new St.Button({
+                label: _("Copy"),
+                style_class: 'translate-action-btn'
+            });
+            copyBtn.connect('clicked', () => {
+                let outText = this.outputEntry.get_clutter_text().get_text();
+                if (outText && outText !== "") {
+                    this._copyToClipboard(outText);
+                }
+            });
+            outputActions.add_child(copyBtn);
+            outputWrapper.add_child(outputActions);
+
+            container.add_child(outputWrapper);
+
+            let menuItem = new PopupMenu.PopupBaseMenuItem({
+                reactive: false,
+                can_focus: false
+            });
+            menuItem.add_child(container);
+            return menuItem;
+        }
+
+        _triggerTranslation() {
+            let fromText = this.inputEntry.get_clutter_text().get_text();
+            this._translateText(true, fromText, (toText) => {
+                this.outputEntry.get_clutter_text().set_text(toText);
+                if (this.autoCopySwitch.state === true) {
+                    this._copyToClipboard(toText);
+                }
+            });
         }
 
         _getValue(keyName) {
@@ -546,15 +533,24 @@ var TranslateAssistant = GObject.registerClass(
 
         _settingsChanged() {
             this._loadPreferences();
-            this.menuInputExpander.label.text = this._source_lang;
-            this.menuOutputExpander.label.text = this._target_lang;
+            if (this.sourceLabel) {
+                this.sourceLabel.text = this._source_lang || '';
+            }
+            if (this.targetLabel) {
+                this.targetLabel.text = this._target_lang || '';
+            }
         }
 
         destroy() {
+            this._destroyed = true;
             this._disconnectSettings();
             this._unbindShortcut();
             this._clearClipboardTimeout();
             this._disconnectSelectionListener();
+            if (this._httpSession) {
+                this._httpSession.abort();
+                this._httpSession = null;
+            }
             super.destroy();
         }
     }

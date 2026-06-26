@@ -1,12 +1,112 @@
-StButton.translate-assistant-button {
-    border-radius: 5px;
-    background-color: #474747;
-    transition-duration: 0.4s;
-    min-width: 24px;
-    padding: 5px;
-    margin: 5px;
+/* Modern styling for Translate Assistant */
+
+.translate-container {
+    padding: 8px;
+    spacing: 10px;
 }
-StButton.translate-assistant-button:hover{
-    background-color: #4CAF50;
+
+/* Language Selection Header */
+.translate-lang-row {
+    spacing: 12px;
+    margin-bottom: 4px;
+}
+
+.translate-lang-label {
+    font-weight: bold;
+    font-size: 13px;
+    color: #e0e0e0;
+    padding: 6px 12px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    min-width: 48px;
+    text-align: center;
+}
+
+.translate-swap-button {
+    border-radius: 20px;
+    background-color: rgba(255, 255, 255, 0.1);
     color: white;
+    padding: 4px 8px;
+    transition-duration: 0.2s;
+}
+
+.translate-swap-button:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.translate-swap-button:active {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Entry Wrappers and Scrollable Text Areas */
+.translate-entry-wrapper {
+    background-color: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 6px;
+    spacing: 6px;
+}
+
+.translate-scroll {
+    min-height: 80px;
+    max-height: 160px;
+    width: 320px;
+}
+
+.translate-entry {
+    background-color: transparent;
+    border: none;
+    padding: 2px;
+    font-size: 14px;
+    color: #ffffff;
+}
+
+.translate-entry.read-only {
+    color: #dfdfdf;
+}
+
+/* Action buttons at the bottom of entries */
+.translate-actions-row {
+    spacing: 6px;
+}
+
+.translate-action-btn {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #eeeeee;
+    transition-duration: 0.15s;
+}
+
+.translate-action-btn:hover {
+    background-color: rgba(255, 255, 255, 0.18);
+    color: #ffffff;
+}
+
+.translate-action-btn:active {
+    background-color: rgba(255, 255, 255, 0.25);
+}
+
+/* Middle translate button row */
+.translate-middle-row {
+    margin: 2px 0;
+}
+
+.translate-submit-btn {
+    font-weight: bold;
+    font-size: 13px;
+    padding: 6px 20px;
+    border-radius: 6px;
+    background-color: #3584e4; /* GNOME Accent Blue */
+    color: #ffffff;
+    transition-duration: 0.2s;
+}
+
+.translate-submit-btn:hover {
+    background-color: #1b6acb;
+}
+
+.translate-submit-btn:active {
+    background-color: #1051a2;
 }
