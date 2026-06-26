@@ -32,6 +32,12 @@ codefactor-badge: True
 <h2>🏠 <a href="https://www.atareao.es/aplicacion/translate-assistant" id="homepage">Homepage</a></h2>
 <p><span id="project_title">Translate Assistant for GNOME Shell</span> is an indicator help you with translations.</p>
 
+## ✨ Features
+
+* **Instant Translation Menu**: Clean popover interface built into the GNOME Shell panel area.
+* **Inline Language Selector**: Select and change the translation languages (Source / Target) directly within the extension popup via a grid selector, complete with flag emojis.
+* **Double-Copy Instant Translate (`Ctrl+C+C`)**: Press copy twice (`Ctrl+C` twice in rapid succession) to automatically trigger an independent clipboard translation and display the result in a centered, non-dimming floating modal window.
+
 <!-- end description -->
 
 <!-- start prerequisites -->
