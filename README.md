@@ -29,75 +29,109 @@ lastcommit-badge: True
 </a>
 </p>
 <h2>🏠 <a href="https://github.com/tazztone/translate-assistant" id="homepage">Homepage</a></h2>
-<p><span id="project_title">Translate Assistant for GNOME Shell</span> is an indicator help you with translations.</p>
+
+<span id="project_title">Translate Assistant for GNOME Shell</span> is a GNOME Shell extension that brings **DeepL-powered translation** directly into your desktop — translate text from a panel popup or trigger instant clipboard translation with a double-copy shortcut.
 
 ## ✨ Features
 
-* **Instant Translation Menu**: Clean popover interface built into the GNOME Shell panel area.
-* **Inline Language Selector**: Select and change the translation languages (Source / Target) directly within the extension popup via a grid selector, complete with flag emojis.
-* **Double-Copy Instant Translate (`Ctrl+C+C`)**: Press copy twice (`Ctrl+C` twice in rapid succession) to automatically trigger an independent clipboard translation and display the result in a centered, non-dimming floating modal window.
+- **Panel menu translator** — a clean popover accessible from the GNOME top bar lets you type or paste text and translate it instantly.
+- **Inline language selector** — switch source and target languages directly inside the popup using a flag-emoji grid, no settings window needed.
+- **Double-copy instant translate (`Ctrl+C` `Ctrl+C`)** — press copy twice in rapid succession to automatically translate whatever is in your clipboard and display the result in a floating, non-dimming modal window.
+- **Configurable shortcut** — the clipboard-translate keybinding can be customised in the extension preferences.
+- **DeepL Free & Pro** — works with both the free and paid DeepL API tiers.
 
 <!-- end description -->
 
 <!-- start prerequisites -->
+
 ## Prerequisites
 
-You need GNOME Shell
+| Requirement | Details |
+|---|---|
+| GNOME Shell | 45 – 50 |
+| DeepL API key | [Free or Pro](https://www.deepl.com/pro-api) |
+
 <!-- end prerequisites -->
 
 <!-- start installing -->
+
 ## Installing <span id="project_title">Translate Assistant for GNOME Shell</span>
 
-To install <span id="project_title">Translate Assistant for GNOME Shell</span>, follow these steps:
+### From GNOME Extensions (recommended)
 
-Goto [GNOME Extensions page](https://extensions.gnome.org/) and search for Translate Assistant, or go to [Translate Assistant in GNOME Shell](https://extensions.gnome.org/extension/5124/translate-assistant/)
+1. Visit the [Translate Assistant page on extensions.gnome.org](https://extensions.gnome.org/extension/5124/translate-assistant/).
+2. Toggle the switch to **On** — the browser integration installs and enables the extension automatically.
 
-Enable the extension by click the switch.
+### Manual installation
+
+```bash
+git clone https://github.com/tazztone/translate-assistant.git
+ln -s "$(pwd)/translate-assistant" \
+  ~/.local/share/gnome-shell/extensions/translate-assistant@atareao.es
+gnome-extensions enable translate-assistant@atareao.es
+```
+
+> **Note**: Do **not** use `gnome-extensions install` from inside the repo — it follows symlinks and will overwrite the source directory. The symlink approach above is the safe dev workflow.
 
 <!-- end installing -->
 
 <!-- start using -->
+
 ## Using <span id="project_title">Translate Assistant for GNOME Shell</span>
 
-When you start **<span id="project_title">Translate Assistant for GNOME Shell</span>** it goes to Indicator Area, as you can see in the next screenshot,
+Once enabled, the extension icon appears in the GNOME top bar. Click it to open the translation popup, type or paste text, choose your languages, and hit **Translate**.
 
-![Translate Assistant for GNOME Shell](./screenshots/screenshot-1.png)
+![Panel popup showing the translation interface](./screenshots/main.webp)
 
-There are a lot of options to configure <span id="project_title">Translate Assistant for GNOME Shell</span>
+### Double-copy clipboard translation
 
-![Translate Assistant for GNOME Shell](./screenshots/screenshot-2.png)
+Copy any text normally, then press `Ctrl+C` a second time within ~500 ms. A floating window appears with the translated result — no focus stealing, no screen dimming.
 
-![Translate Assistant for GNOME Shell](./screenshots/screenshot-3.png)
+![Floating window triggered by the double-copy shortcut](./screenshots/CTRLCC.webp)
 
-![Translate Assistant for GNOME Shell](./screenshots/screenshot-4.png)
+### Preferences
 
-About
+Open **GNOME Settings → Extensions → Translate Assistant → Settings** to configure:
 
-![Translate Assistant for GNOME Shell](./screenshots/screenshot-5.png)
+- DeepL API key
+- Default source and target languages
+- Clipboard-translate keybinding
+
 <!-- end using -->
 
-<!-- start contributing -->
-## Contributing to <span id="project_title">Translate Assistant for GNOME Shell</span>
+## 🛠 Development
 
-To contribute to **<span id="project_title">Translate Assistant for GNOME Shell</span>**, follow these steps:
+```bash
+# Compile GSettings schemas after editing .gschema.xml
+glib-compile-schemas schemas/
+
+# Reload the extension after changes
+gnome-extensions disable translate-assistant@atareao.es
+gnome-extensions enable translate-assistant@atareao.es
+
+# Watch logs in real time
+journalctl -f -o cat /usr/bin/gnome-shell
+```
+
+<!-- start contributing -->
+
+## Contributing to <span id="project_title">Translate Assistant for GNOME Shell</span>
 
 1. Fork this repository.
 2. Create a branch: `git checkout -b <branch_name>`.
 3. Make your changes and commit them: `git commit -m '<commit_message>'`
-4. Push to the original branch: `git push origin atareao/readmemaker`
-5. Create the pull request.
+4. Push to the original branch: `git push origin <branch_name>`
+5. Create a pull request.
 
-Alternatively see the GitHub documentation on [creating a pull request](https://help.github.com/en/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request).
-</commit_message></branch_name>
+See the GitHub docs on [creating a pull request](https://help.github.com/en/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request) for help.
 
 <!-- end contributing -->
 
 <!-- start contributors -->
+
 ## 👤 Contributors ✨
 
 Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
-
-
 
 <!-- end contributors -->
 
@@ -139,7 +173,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
         </td>
         <td id="Vistaus" align="center">
             <a href="https://github.com/Vistaus">
-                <strong> Heimen Stoffels </strong>
+                <strong>Heimen Stoffels</strong>
             </a>
         </td>
         <td id="atareao" align="center">
@@ -171,4 +205,11 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
         </td>
     </tr>
 </table>
+
 <!-- end table-contributors -->
+
+---
+
+## 📄 License
+
+[MIT](./LICENSE) © Lorenzo Carbonell Cerezo (atareao) & contributors
