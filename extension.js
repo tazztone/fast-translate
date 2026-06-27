@@ -346,6 +346,7 @@ var TranslateAssistant = GObject.registerClass(
         }
 
         _loadPreferences() {
+            this._translation_service = this._settings.get_enum('translation-service');
             this._source_lang = this._get_country_code(this._getValue('source-lang'));
             this._target_lang = this._get_country_code(this._getValue('target-lang'));
             this._split_sentences = this._getValue('split-sentences');
@@ -401,52 +402,79 @@ var TranslateAssistant = GObject.registerClass(
                     this.translateBtn.label = _("Cancel");
                 }
 
-                // Build JSON body — DeepL deprecated form-body auth in Nov 2025
                 const targetLang = fromOrTo === true ? this._target_lang : this._source_lang;
                 const sourceLang = fromOrTo === true ? this._source_lang : this._target_lang;
 
-                const bodyObj = {
-                    text: [fromText],
-                    target_lang: targetLang,
-                    split_sentences: this._split_sentences ? "1" : "0",
-                    preserve_formatting: !!this._preserve_formatting,
-                };
-
-                if (sourceLang && sourceLang !== 'AUTO') {
-                    bodyObj.source_lang = sourceLang;
-                }
-
-                if (this._formality && this._formality !== 'default') {
-                    if (this._formality === 'more') {
-                        bodyObj.formality = 'prefer_more';
-                    } else if (this._formality === 'less') {
-                        bodyObj.formality = 'prefer_less';
-                    } else {
-                        bodyObj.formality = this._formality;
-                    }
-                }
-
-                const body = JSON.stringify(bodyObj);
-                const bytes = new GLib.Bytes(body);
-
                 let message;
-                try {
-                    message = Soup.Message.new('POST', this._url);
-                    if (!message) {
-                        throw new Error(_("Invalid URL"));
-                    }
-                } catch (e) {
-                    this._showError(`${_("Error")}: ${e.message}`);
-                    this._cancellable = null;
-                    if (this.translateBtn) {
-                        this.translateBtn.label = _("Translate");
-                    }
-                    return;
-                }
+                if (this._translation_service === 1) {
+                    // Google Translate (Auth-Free)
+                    const sl = sourceLang === 'AUTO' ? 'auto' : sourceLang.toLowerCase();
+                    const tl = targetLang.toLowerCase();
+                    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t`;
 
-                // Header-based auth required by DeepL API v2
-                message.request_headers.replace('Authorization', `DeepL-Auth-Key ${this._apikey}`);
-                message.set_request_body_from_bytes('application/json', bytes);
+                    const bodyObj = { q: fromText };
+                    const body = buildRequestQuery(bodyObj);
+                    const bytes = new GLib.Bytes(body);
+
+                    try {
+                        message = Soup.Message.new('POST', url);
+                        if (!message) {
+                            throw new Error(_("Invalid URL"));
+                        }
+                    } catch (e) {
+                        this._showError(`${_("Error")}: ${e.message}`);
+                        this._cancellable = null;
+                        if (this.translateBtn) {
+                            this.translateBtn.label = _("Translate");
+                        }
+                        return;
+                    }
+
+                    message.set_request_body_from_bytes('application/x-www-form-urlencoded', bytes);
+                    message.request_headers.replace('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+                } else {
+                    // DeepL
+                    const bodyObj = {
+                        text: [fromText],
+                        target_lang: targetLang,
+                        split_sentences: this._split_sentences ? "1" : "0",
+                        preserve_formatting: !!this._preserve_formatting,
+                    };
+
+                    if (sourceLang && sourceLang !== 'AUTO') {
+                        bodyObj.source_lang = sourceLang;
+                    }
+
+                    if (this._formality && this._formality !== 'default') {
+                        if (this._formality === 'more') {
+                            bodyObj.formality = 'prefer_more';
+                        } else if (this._formality === 'less') {
+                            bodyObj.formality = 'prefer_less';
+                        } else {
+                            bodyObj.formality = this._formality;
+                        }
+                    }
+
+                    const body = JSON.stringify(bodyObj);
+                    const bytes = new GLib.Bytes(body);
+
+                    try {
+                        message = Soup.Message.new('POST', this._url);
+                        if (!message) {
+                            throw new Error(_("Invalid URL"));
+                        }
+                    } catch (e) {
+                        this._showError(`${_("Error")}: ${e.message}`);
+                        this._cancellable = null;
+                        if (this.translateBtn) {
+                            this.translateBtn.label = _("Translate");
+                        }
+                        return;
+                    }
+
+                    message.request_headers.replace('Authorization', `DeepL-Auth-Key ${this._apikey}`);
+                    message.set_request_body_from_bytes('application/json', bytes);
+                }
                 
                 if (this._destroyed || !this._httpSession) {
                     this._cancellable = null;
@@ -477,12 +505,21 @@ var TranslateAssistant = GObject.registerClass(
                                 let decoder = new TextDecoder("utf-8");
                                 let response = decoder.decode(resBytes.get_data());
                                 let json = JSON.parse(response);
-                                let translations = json.translations;
-                                let toText = (translations && translations.length > 0) ? translations[0].text : "";
+                                
+                                let toText = "";
+                                if (this._translation_service === 1) {
+                                    toText = (json && json[0]) ? json[0].map(part => part[0]).join('') : "";
+                                } else {
+                                    let translations = json.translations;
+                                    toText = (translations && translations.length > 0) ? translations[0].text : "";
+                                }
+                                
                                 if (this._notifications) {
                                     Main.notify("Translate Assistant", _("Translated"));
                                 }
                                 callback(toText);
+                            } else if (this._translation_service === 1 && (message.status_code === 403 || message.status_code === 429)) {
+                                this._showError(_("Rate-limited or blocked by Google Translate. Please try again later."));
                             } else if (message.status_code === 403) {
                                 this._showError(_("Auth failed (403): check API key and URL in settings"));
                             } else {
@@ -533,41 +570,64 @@ var TranslateAssistant = GObject.registerClass(
         _translateTextIndependent(fromText, callback) {
             if (!fromText || fromText.trim() === "") return;
 
-            const bodyObj = {
-                text: [fromText],
-                target_lang: this._target_lang,
-                split_sentences: this._split_sentences ? "1" : "0",
-                preserve_formatting: !!this._preserve_formatting,
-            };
-
-            if (this._source_lang && this._source_lang !== 'AUTO') {
-                bodyObj.source_lang = this._source_lang;
-            }
-
-            if (this._formality && this._formality !== 'default') {
-                if (this._formality === 'more') {
-                    bodyObj.formality = 'prefer_more';
-                } else if (this._formality === 'less') {
-                    bodyObj.formality = 'prefer_less';
-                } else {
-                    bodyObj.formality = this._formality;
-                }
-            }
-
-            const body = JSON.stringify(bodyObj);
-            const bytes = new GLib.Bytes(body);
-
             let message;
-            try {
-                message = Soup.Message.new('POST', this._url);
-                if (!message) throw new Error(_("Invalid URL"));
-            } catch (e) {
-                Main.notify("Translate Assistant", `${_("Error")}: ${e.message}`);
-                return;
-            }
+            if (this._translation_service === 1) {
+                // Google Translate (Auth-Free)
+                const sl = this._source_lang === 'AUTO' ? 'auto' : this._source_lang.toLowerCase();
+                const tl = this._target_lang.toLowerCase();
+                const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t`;
 
-            message.request_headers.replace('Authorization', `DeepL-Auth-Key ${this._apikey}`);
-            message.set_request_body_from_bytes('application/json', bytes);
+                const bodyObj = { q: fromText };
+                const body = buildRequestQuery(bodyObj);
+                const bytes = new GLib.Bytes(body);
+
+                try {
+                    message = Soup.Message.new('POST', url);
+                    if (!message) throw new Error(_("Invalid URL"));
+                } catch (e) {
+                    Main.notify("Translate Assistant", `${_("Error")}: ${e.message}`);
+                    return;
+                }
+
+                message.set_request_body_from_bytes('application/x-www-form-urlencoded', bytes);
+                message.request_headers.replace('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+            } else {
+                // DeepL
+                const bodyObj = {
+                    text: [fromText],
+                    target_lang: this._target_lang,
+                    split_sentences: this._split_sentences ? "1" : "0",
+                    preserve_formatting: !!this._preserve_formatting,
+                };
+
+                if (this._source_lang && this._source_lang !== 'AUTO') {
+                    bodyObj.source_lang = this._source_lang;
+                }
+
+                if (this._formality && this._formality !== 'default') {
+                    if (this._formality === 'more') {
+                        bodyObj.formality = 'prefer_more';
+                    } else if (this._formality === 'less') {
+                        bodyObj.formality = 'prefer_less';
+                    } else {
+                        bodyObj.formality = this._formality;
+                    }
+                }
+
+                const body = JSON.stringify(bodyObj);
+                const bytes = new GLib.Bytes(body);
+
+                try {
+                    message = Soup.Message.new('POST', this._url);
+                    if (!message) throw new Error(_("Invalid URL"));
+                } catch (e) {
+                    Main.notify("Translate Assistant", `${_("Error")}: ${e.message}`);
+                    return;
+                }
+
+                message.request_headers.replace('Authorization', `DeepL-Auth-Key ${this._apikey}`);
+                message.set_request_body_from_bytes('application/json', bytes);
+            }
             
             if (this._destroyed || !this._httpSession) return;
 
@@ -585,9 +645,17 @@ var TranslateAssistant = GObject.registerClass(
                             let decoder = new TextDecoder("utf-8");
                             let response = decoder.decode(resBytes.get_data());
                             let json = JSON.parse(response);
-                            let translations = json.translations;
-                            let toText = (translations && translations.length > 0) ? translations[0].text : "";
+                            
+                            let toText = "";
+                            if (this._translation_service === 1) {
+                                toText = (json && json[0]) ? json[0].map(part => part[0]).join('') : "";
+                            } else {
+                                let translations = json.translations;
+                                toText = (translations && translations.length > 0) ? translations[0].text : "";
+                            }
                             callback(toText);
+                        } else if (this._translation_service === 1 && (message.status_code === 403 || message.status_code === 429)) {
+                            Main.notify("Translate Assistant", _("Rate-limited or blocked by Google Translate. Please try again later."));
                         } else if (message.status_code === 403) {
                             Main.notify("Translate Assistant", _("Auth failed (403): check API key and URL in settings"));
                         } else {

@@ -51,6 +51,25 @@ export default class TranslateAssistantPreferences extends ExtensionPreferences 
         });
         generalPage.add(langGroup);
 
+        // Translation Service Combo
+        const serviceKey = settings.settings_schema.get_key('translation-service');
+        const serviceEnums = serviceKey.get_range().deep_unpack()[1].deep_unpack();
+        const serviceRow = new Adw.ComboRow({
+            title: _('Translation Service'),
+            subtitle: _('The translation service provider to use'),
+            model: Gtk.StringList.new(serviceEnums),
+        });
+        serviceRow.selected = settings.get_enum('translation-service');
+        serviceRow.connect('notify::selected', () => {
+            settings.set_enum('translation-service', serviceRow.selected);
+            updateServiceVisibility();
+        });
+        settings.connect('changed::translation-service', () => {
+            serviceRow.selected = settings.get_enum('translation-service');
+            updateServiceVisibility();
+        });
+        langGroup.add(serviceRow);
+
         // Source Language Combo
         const sourceKey = settings.settings_schema.get_key('source-lang');
         const sourceEnums = sourceKey.get_range().deep_unpack()[1].deep_unpack();
@@ -332,5 +351,20 @@ export default class TranslateAssistantPreferences extends ExtensionPreferences 
         });
         coffeeRow.add_suffix(coffeeBtn);
         linksGroup.add(coffeeRow);
+
+        // Helper function for service-specific visibility
+        function updateServiceVisibility() {
+            const isDeepL = (settings.get_enum('translation-service') === 0);
+            apiGroup.visible = isDeepL;
+            formattingGroup.visible = isDeepL;
+            formalityRow.visible = isDeepL;
+
+            if (isDeepL) {
+                autoTranslateRow.subtitle = _('Translate automatically when input is populated');
+            } else {
+                autoTranslateRow.subtitle = _('Translate automatically when input is populated. Warning: Your IP address may get banned for API abuse.');
+            }
+        }
+        updateServiceVisibility();
     }
 }

@@ -64,8 +64,17 @@
         <value value="1" nick="more"/>
         <value value="2" nick="less"/>
     </enum>
+    <enum id="org.gnome.shell.extensions.translate-assistant.translation-service">
+        <value value="0" nick="DeepL"/>
+        <value value="1" nick="Google Translate"/>
+    </enum>
 
     <schema path="/org/gnome/shell/extensions/translate-assistant/" id="org.gnome.shell.extensions.translate-assistant">
+        <key name="translation-service" enum="org.gnome.shell.extensions.translate-assistant.translation-service">
+            <default>'Google Translate'</default>
+            <summary>Translation service</summary>
+            <description>The translation service to use (DeepL or Google Translate)</description>
+        </key>
         <key name="source-lang" enum="org.gnome.shell.extensions.translate-assistant.source-lang">
             <default>'Auto (AUTO)'</default>
             <summary>Source language</summary>

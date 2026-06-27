@@ -37,6 +37,9 @@ global.testRunnerPromise = (async () => {
         }
 
         // Test 4: Mocked HTTP Translation (Offline)
+        const originalService = indicator._settings.get_enum('translation-service');
+        indicator._settings.set_enum('translation-service', 0); // Force DeepL mode first
+
         const originalSendReadAsync = indicator._httpSession.send_and_read_async;
         let mockCallback = null;
         let mockSession = null;
@@ -130,6 +133,116 @@ global.testRunnerPromise = (async () => {
             indicator._httpSession.send_and_read_finish = originalSendReadFinish;
             return { success: false, error: "Translate button label did not reset to Translate after success" };
         }
+
+        // Test 4b: Mocked HTTP Translation (Google Translate - Offline)
+        indicator._settings.set_enum('translation-service', 1); // 1 = Google Translate
+        
+        let googleInterceptedBody = null;
+        let googleMockCallback = null;
+        let googleMockSession = null;
+        let googleMockMessage = null;
+
+        const originalSetRequestBodyGoogle = Soup.Message.prototype.set_request_body_from_bytes;
+        Soup.Message.prototype.set_request_body_from_bytes = function(contentType, bytes) {
+            try {
+                const data = bytes.get_data();
+                googleInterceptedBody = typeof TextDecoder !== 'undefined' ? new TextDecoder().decode(data) : imports.byteArray.toString(data);
+            } catch (e) {
+                // Ignore conversion errors
+            }
+            return originalSetRequestBodyGoogle.call(this, contentType, bytes);
+        };
+
+        indicator._httpSession.send_and_read_async = function(message, priority, cancellable, callback) {
+            googleMockMessage = message;
+            googleMockSession = this;
+            googleMockCallback = callback;
+        };
+
+        // Clear output first
+        indicator.outputEntry.get_clutter_text().set_text("");
+        indicator.inputEntry.get_clutter_text().set_text("Hello");
+        indicator.translateBtn.emit('clicked', 0);
+
+        // Restore prototype method immediately
+        Soup.Message.prototype.set_request_body_from_bytes = originalSetRequestBodyGoogle;
+
+        // Verify button changed label to "Cancel"
+        if (indicator.translateBtn.label !== "Cancel") {
+            indicator._httpSession.send_and_read_async = originalSendReadAsync;
+            indicator._httpSession.send_and_read_finish = originalSendReadFinish;
+            indicator._settings.set_enum('translation-service', originalService);
+            return { success: false, error: "Google Translate: Translate button did not change to Cancel" };
+        }
+
+        // Verify request payload was interceptable
+        if (!googleInterceptedBody) {
+            indicator._httpSession.send_and_read_async = originalSendReadAsync;
+            indicator._httpSession.send_and_read_finish = originalSendReadFinish;
+            indicator._settings.set_enum('translation-service', originalService);
+            return { success: false, error: "Google Translate: Request body was not set" };
+        }
+
+        if (googleInterceptedBody !== "q=Hello") {
+            indicator._httpSession.send_and_read_async = originalSendReadAsync;
+            indicator._httpSession.send_and_read_finish = originalSendReadFinish;
+            indicator._settings.set_enum('translation-service', originalService);
+            return { success: false, error: "Google Translate: Request body is not form urlencoded q=Hello, got: " + googleInterceptedBody };
+        }
+
+        const uri = googleMockMessage.uri ? googleMockMessage.uri.to_string() : (googleMockMessage.get_uri ? googleMockMessage.get_uri().to_string() : "");
+        if (!uri.includes("translate.googleapis.com/translate_a/single") || !uri.includes("client=gtx")) {
+            indicator._httpSession.send_and_read_async = originalSendReadAsync;
+            indicator._httpSession.send_and_read_finish = originalSendReadFinish;
+            indicator._settings.set_enum('translation-service', originalService);
+            return { success: false, error: "Google Translate: Outgoing URL is incorrect: " + uri };
+        }
+
+        // Verify no Authorization header is set
+        const authHeader = googleMockMessage.request_headers.get_one('Authorization');
+        if (authHeader) {
+            indicator._httpSession.send_and_read_async = originalSendReadAsync;
+            indicator._httpSession.send_and_read_finish = originalSendReadFinish;
+            indicator._settings.set_enum('translation-service', originalService);
+            return { success: false, error: "Google Translate: Authorization header should not be set!" };
+        }
+
+        // Complete the mock request
+        if (!googleMockCallback) {
+            indicator._httpSession.send_and_read_async = originalSendReadAsync;
+            indicator._httpSession.send_and_read_finish = originalSendReadFinish;
+            indicator._settings.set_enum('translation-service', originalService);
+            return { success: false, error: "Google Translate: send_and_read_async was not called" };
+        }
+
+        Object.defineProperty(googleMockMessage, 'status_code', { get: () => 200, configurable: true });
+
+        indicator._httpSession.send_and_read_finish = function(result) {
+            const GLib = imports.gi.GLib;
+            const text = JSON.stringify([[["Bonjour", "Hello", null, null, 10]], null, "en"]);
+            return typeof TextEncoder !== 'undefined' ? new GLib.Bytes(new TextEncoder().encode(text)) : new GLib.Bytes(imports.byteArray.fromString(text));
+        };
+
+        // Call the callback
+        googleMockCallback(googleMockSession, "dummy_result");
+
+        // Verify result
+        if (indicator.outputEntry.get_clutter_text().get_text() !== "Bonjour") {
+            indicator._httpSession.send_and_read_async = originalSendReadAsync;
+            indicator._httpSession.send_and_read_finish = originalSendReadFinish;
+            indicator._settings.set_enum('translation-service', originalService);
+            return { success: false, error: "Google Translate: Translation did not populate outputEntry correctly" };
+        }
+
+        if (indicator.translateBtn.label !== "Translate") {
+            indicator._httpSession.send_and_read_async = originalSendReadAsync;
+            indicator._httpSession.send_and_read_finish = originalSendReadFinish;
+            indicator._settings.set_enum('translation-service', originalService);
+            return { success: false, error: "Google Translate: Translate button label did not reset to Translate after success" };
+        }
+
+        // Clean up / revert to DeepL
+        indicator._settings.set_enum('translation-service', originalService);
 
         // Test 5: Cancel Translation Flow
         let cancelTriggered = false;
