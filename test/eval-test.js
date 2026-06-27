@@ -370,7 +370,20 @@ global.testRunnerPromise = (async () => {
                 return { success: false, error: "Floating window was created on a single copy!" };
             }
 
-            // Simulate second copy (200ms monotonic time delta)
+            // Simulate spurious copy signal (10ms monotonic time delta)
+            mockTime = 1010000;
+            indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null);
+
+            // Verify that independent translation was NOT triggered by the spurious signal
+            if (independentTranslationCallback) {
+                GLib.get_monotonic_time = originalGetMonotonicTime;
+                Clipboard.get_text = originalClipboardGetText;
+                Clipboard.set_text = originalClipboardSetText;
+                indicator._translateTextIndependent = originalTranslateTextIndependent;
+                return { success: false, error: "Spurious repeat event (<50ms) triggered translation!" };
+            }
+
+            // Simulate second copy (200ms monotonic time delta from the first press)
             mockTime = 1200000;
             indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null);
 

@@ -171,6 +171,7 @@ var TranslateAssistant = GObject.registerClass(
             /* Toggles at the bottom */
             this.autoPasteSwitch = new PopupMenu.PopupSwitchMenuItem(
                 _('Auto Paste from clipboard'), this._getValue("auto-paste"), {});
+            this.autoPasteSwitch.activate = function(event) { this.toggle(); };
             this.menu.addMenuItem(this.autoPasteSwitch);
             this.autoPasteSwitch.connect('toggled', (item, state) => {
                 this._settings.set_boolean('auto-paste', state);
@@ -179,6 +180,7 @@ var TranslateAssistant = GObject.registerClass(
 
             this.autoTranslateSwitch = new PopupMenu.PopupSwitchMenuItem(
                 _('Auto Translate'), this._getValue("auto-translate"), {});
+            this.autoTranslateSwitch.activate = function(event) { this.toggle(); };
             this.menu.addMenuItem(this.autoTranslateSwitch);
             this.autoTranslateSwitch.connect('toggled', (item, state) => {
                 this._settings.set_boolean('auto-translate', state);
@@ -186,6 +188,7 @@ var TranslateAssistant = GObject.registerClass(
 
             this.autoCopySwitch = new PopupMenu.PopupSwitchMenuItem(
                 _('Auto Copy to clipboard'), this._getValue("auto-copy"), {});
+            this.autoCopySwitch.activate = function(event) { this.toggle(); };
             this.menu.addMenuItem(this.autoCopySwitch);
             this.autoCopySwitch.connect('toggled', (item, state) => {
                 this._settings.set_boolean('auto-copy', state);
@@ -193,6 +196,7 @@ var TranslateAssistant = GObject.registerClass(
 
             this.floatingAutoCopySwitch = new PopupMenu.PopupSwitchMenuItem(
                 _('Auto Copy (Floating) to clipboard'), this._getValue("floating-auto-copy"), {});
+            this.floatingAutoCopySwitch.activate = function(event) { this.toggle(); };
             this.menu.addMenuItem(this.floatingAutoCopySwitch);
             this.floatingAutoCopySwitch.connect('toggled', (item, state) => {
                 this._settings.set_boolean('floating-auto-copy', state);
@@ -294,7 +298,10 @@ var TranslateAssistant = GObject.registerClass(
                 let now = GLib.get_monotonic_time();
                 if (this._lastSelectionTime) {
                     let diff = now - this._lastSelectionTime;
-                    if (diff >= 100000 && diff < 500000) {
+                    if (diff >= 0 && diff < 50000) {
+                        return;
+                    }
+                    if (diff >= 0 && diff < 500000) {
                         Clipboard.get_text(CLIPBOARD_TYPE, (_, fromText) => {
                             if (fromText && fromText.trim() !== "") {
                                 this._triggerFloatingTranslation(fromText);
@@ -781,7 +788,8 @@ var TranslateAssistant = GObject.registerClass(
                 style_class: 'translate-entry',
                 hint_text: _('Type or paste text...'),
                 can_focus: true,
-                track_hover: true
+                track_hover: true,
+                reactive: true
             });
             this.inputEntry.get_clutter_text().set_line_wrap(true);
             this.inputEntry.get_clutter_text().set_line_wrap_mode(Pango.WrapMode.WORD_CHAR);
@@ -891,7 +899,8 @@ var TranslateAssistant = GObject.registerClass(
                 style_class: 'translate-entry read-only',
                 hint_text: _('Translation will appear here...'),
                 can_focus: true,
-                track_hover: true
+                track_hover: true,
+                reactive: true
             });
             this.outputEntry.get_clutter_text().set_line_wrap(true);
             this.outputEntry.get_clutter_text().set_line_wrap_mode(Pango.WrapMode.WORD_CHAR);
