@@ -331,6 +331,12 @@ global.testRunnerPromise = (async () => {
         const GLib = imports.gi.GLib;
         const Clipboard = St.Clipboard.get_default();
 
+        const originalGetMonotonicTime = GLib.get_monotonic_time;
+        let mockTime = 1000000;
+        GLib.get_monotonic_time = function() {
+            return mockTime;
+        };
+
         const originalClipboardGetText = Clipboard.get_text;
         const originalClipboardSetText = Clipboard.set_text;
         let mockClipboardText = "";
@@ -351,22 +357,26 @@ global.testRunnerPromise = (async () => {
 
         try {
             // First copy
+            mockTime = 1000000;
             mockClipboardText = "Double Copy Test input text";
             indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null);
             
             // Check that the floating window is NOT created yet
             if (indicator._floatingWindow) {
+                GLib.get_monotonic_time = originalGetMonotonicTime;
                 Clipboard.get_text = originalClipboardGetText;
                 Clipboard.set_text = originalClipboardSetText;
                 indicator._translateTextIndependent = originalTranslateTextIndependent;
                 return { success: false, error: "Floating window was created on a single copy!" };
             }
 
-            // Simulate second copy immediately (less than 500ms monotonic time delta)
+            // Simulate second copy (200ms monotonic time delta)
+            mockTime = 1200000;
             indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null);
 
             // Verify that _translateTextIndependent was triggered
             if (independentTranslationText !== "Double Copy Test input text" || !independentTranslationCallback) {
+                GLib.get_monotonic_time = originalGetMonotonicTime;
                 Clipboard.get_text = originalClipboardGetText;
                 Clipboard.set_text = originalClipboardSetText;
                 indicator._translateTextIndependent = originalTranslateTextIndependent;
@@ -450,7 +460,9 @@ global.testRunnerPromise = (async () => {
 
                 // Trigger double copy flow again
                 mockClipboardText = "Auto Copy Test input text";
+                mockTime = 2000000;
                 indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null); // 1st
+                mockTime = 2200000;
                 indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null); // 2nd
 
                 if (!independentTranslationCallback) {
@@ -481,6 +493,7 @@ global.testRunnerPromise = (async () => {
             }
 
         } catch (e) {
+            GLib.get_monotonic_time = originalGetMonotonicTime;
             Clipboard.get_text = originalClipboardGetText;
             Clipboard.set_text = originalClipboardSetText;
             indicator._translateTextIndependent = originalTranslateTextIndependent;
@@ -490,6 +503,7 @@ global.testRunnerPromise = (async () => {
             }
             return { success: false, error: "Double-copy shortcut test failed: " + e.message };
         } finally {
+            GLib.get_monotonic_time = originalGetMonotonicTime;
             Clipboard.get_text = originalClipboardGetText;
             Clipboard.set_text = originalClipboardSetText;
             indicator._translateTextIndependent = originalTranslateTextIndependent;

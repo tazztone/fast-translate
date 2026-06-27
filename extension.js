@@ -292,12 +292,15 @@ var TranslateAssistant = GObject.registerClass(
                     return;
                 }
                 let now = GLib.get_monotonic_time();
-                if (this._lastSelectionTime && (now - this._lastSelectionTime) < 500000) {
-                    Clipboard.get_text(CLIPBOARD_TYPE, (_, fromText) => {
-                        if (fromText && fromText.trim() !== "") {
-                            this._triggerFloatingTranslation(fromText);
-                        }
-                    });
+                if (this._lastSelectionTime) {
+                    let diff = now - this._lastSelectionTime;
+                    if (diff >= 100000 && diff < 500000) {
+                        Clipboard.get_text(CLIPBOARD_TYPE, (_, fromText) => {
+                            if (fromText && fromText.trim() !== "") {
+                                this._triggerFloatingTranslation(fromText);
+                            }
+                        });
+                    }
                 }
                 this._lastSelectionTime = now;
                 this._translateIfAutoPaste();
