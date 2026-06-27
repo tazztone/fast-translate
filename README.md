@@ -36,7 +36,7 @@ lastcommit-badge: True
 
 - **Panel menu translator** — a clean popover accessible from the GNOME top bar lets you type or paste text and translate it instantly.
 - **Inline language selector** — switch source and target languages directly inside the popup using a flag-emoji grid, no settings window needed.
-- **Double-copy instant translate (`Ctrl+C` `Ctrl+C`)** — press copy twice in rapid succession to automatically translate whatever is in your clipboard and display the result in a floating, non-dimming modal window.
+- **Double-copy translation** — press the copy shortcut (`Ctrl+C` `Ctrl+C`) twice in rapid succession to trigger instant translation. Choose between displaying the result in a floating window, or running silently in the background to auto-copy the translation directly to your clipboard for immediate pasting (`Ctrl+V`).
 - **Configurable shortcut** — the clipboard-translate keybinding can be customised in the extension preferences.
 - **Multiple Backends** — choose between Google Translate (works instantly out-of-the-box, no key required) and DeepL (Free & Pro tiers).
 
@@ -85,7 +85,10 @@ Once enabled, the extension icon appears in the GNOME top bar. Click it to open 
 
 ### Double-copy clipboard translation
 
-Copy any text normally, then press `Ctrl+C` a second time within ~500 ms. A floating window appears with the translated result — no focus stealing, no screen dimming.
+Copy any text normally, then press `Ctrl+C` a second time within ~500 ms. Depending on your preferences:
+
+- **Default mode**: A floating window appears with the translated result — no focus stealing, no screen dimming.
+- **Background mode**: The translation runs silently in the background and automatically updates your clipboard, allowing you to instantly paste (`Ctrl+V`) the translated text without distraction. An optional desktop toast notification is shown on completion.
 
 ![Floating window triggered by the double-copy shortcut](./screenshots/CTRLCC.webp)
 
@@ -99,6 +102,8 @@ Open **GNOME Settings → Extensions → Translate Assistant → Settings** to c
 - Clipboard-translate keybinding
 - Auto-translate behavior
 - Dark/light theme icons and notifications
+- **Double-copy Background Mode** (enable silent clipboard-to-clipboard translation)
+- **Show Notification in Background Mode** (enable/disable completion toasts)
 
 <!-- end using -->
 
