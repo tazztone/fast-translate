@@ -30,7 +30,7 @@ lastcommit-badge: True
 </p>
 <h2>🏠 <a href="https://github.com/tazztone/translate-assistant" id="homepage">Homepage</a></h2>
 
-<span id="project_title">Translate Assistant for GNOME Shell</span> is a GNOME Shell extension that brings **DeepL-powered translation** directly into your desktop — translate text from a panel popup or trigger instant clipboard translation with a double-copy shortcut.
+<span id="project_title">Translate Assistant for GNOME Shell</span> is a GNOME Shell extension that brings **Google Translate and DeepL-powered translation** directly into your desktop — translate text from a panel popup or trigger instant clipboard translation with a double-copy shortcut.
 
 ## ✨ Features
 
@@ -38,7 +38,7 @@ lastcommit-badge: True
 - **Inline language selector** — switch source and target languages directly inside the popup using a flag-emoji grid, no settings window needed.
 - **Double-copy instant translate (`Ctrl+C` `Ctrl+C`)** — press copy twice in rapid succession to automatically translate whatever is in your clipboard and display the result in a floating, non-dimming modal window.
 - **Configurable shortcut** — the clipboard-translate keybinding can be customised in the extension preferences.
-- **DeepL Free & Pro** — works with both the free and paid DeepL API tiers.
+- **Multiple Backends** — choose between Google Translate (works instantly out-of-the-box, no key required) and DeepL (Free & Pro tiers).
 
 <!-- end description -->
 
@@ -49,7 +49,7 @@ lastcommit-badge: True
 | Requirement | Details |
 |---|---|
 | GNOME Shell | 45 – 50 |
-| DeepL API key | [Free or Pro](https://www.deepl.com/pro-api) |
+| DeepL API key | (Optional) [Free or Pro](https://www.deepl.com/pro-api) — only needed if choosing DeepL as your active provider |
 
 <!-- end prerequisites -->
 
@@ -93,9 +93,12 @@ Copy any text normally, then press `Ctrl+C` a second time within ~500 ms. A floa
 
 Open **GNOME Settings → Extensions → Translate Assistant → Settings** to configure:
 
-- DeepL API key
+- Active translation service (Google Translate or DeepL)
+- DeepL API key & URL (automatically hidden when Google Translate is selected)
 - Default source and target languages
 - Clipboard-translate keybinding
+- Auto-translate behavior
+- Dark/light theme icons and notifications
 
 <!-- end using -->
 
