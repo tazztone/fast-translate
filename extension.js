@@ -194,14 +194,6 @@ var TranslateAssistant = GObject.registerClass(
                 this._settings.set_boolean('auto-copy', state);
             });
 
-            this.floatingAutoCopySwitch = new PopupMenu.PopupSwitchMenuItem(
-                _('Auto Copy (Floating) to clipboard'), this._getValue("floating-auto-copy"), {});
-            this.floatingAutoCopySwitch.activate = function(event) { this.toggle(); };
-            this.menu.addMenuItem(this.floatingAutoCopySwitch);
-            this.floatingAutoCopySwitch.connect('toggled', (item, state) => {
-                this._settings.set_boolean('floating-auto-copy', state);
-            });
-
             /* Separator */
             this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
@@ -224,7 +216,6 @@ var TranslateAssistant = GObject.registerClass(
             this._addTooltip(this.autoPasteSwitch, _("Automatically paste clipboard text when menu opens"));
             this._addTooltip(this.autoTranslateSwitch, _("Translate input text automatically while typing"));
             this._addTooltip(this.autoCopySwitch, _("Copy translation results to clipboard automatically"));
-            this._addTooltip(this.floatingAutoCopySwitch, _("Copy floating translation results to clipboard automatically"));
             this._addTooltip(this.settingsMenuItem, _("Open extension preferences"));
 
             this.menu.connect('open-state-changed', (menu, isOpen) => {
@@ -568,9 +559,10 @@ var TranslateAssistant = GObject.registerClass(
                         },
                         (text) => {
                             this._copyToClipboard(text);
-                        }
+                        },
+                        this._settings
                     );
-                    if (this.floatingAutoCopySwitch.state === true) {
+                    if (this._settings.get_boolean('floating-auto-copy') === true) {
                         this._copyToClipboard(toText);
                     }
                 }
@@ -1174,8 +1166,9 @@ export default class TranslateAssistantExtension extends Extension {
 }
 
 class FloatingTranslationWindow {
-    constructor(sourceText, targetText, sourceLang, targetLang, onDestroy, onCopyClicked) {
+    constructor(sourceText, targetText, sourceLang, targetLang, onDestroy, onCopyClicked, settings) {
         this._onDestroy = onDestroy;
+        this._settings = settings;
         this.overlay = new St.Widget({
             style_class: 'translate-floating-overlay',
             reactive: true,
@@ -1279,7 +1272,7 @@ class FloatingTranslationWindow {
         destScroll.add_child(destBox);
         this.actor.add_child(destScroll);
 
-        // Actions Row (Copy Button)
+        // Actions Row (Copy Button & Auto Copy Checkbox)
         let actions = new St.BoxLayout({
             vertical: false,
             style_class: 'translate-floating-actions'
@@ -1302,6 +1295,50 @@ class FloatingTranslationWindow {
             this.destroy();
         });
         actions.add_child(copyBtn);
+
+        let spacer = new St.Widget({ x_expand: true });
+        actions.add_child(spacer);
+
+        if (this._settings) {
+            let autoCopyBox = new St.BoxLayout({
+                vertical: false,
+                style_class: 'translate-floating-autocopy-box',
+                y_align: Clutter.ActorAlign.CENTER
+            });
+            let autoCopyLabel = new St.Label({
+                text: _("Auto Copy"),
+                style_class: 'translate-floating-autocopy-label',
+                y_align: Clutter.ActorAlign.CENTER
+            });
+            
+            let isAutoCopy = this._settings.get_boolean('floating-auto-copy');
+            let autoCopyBtn = new St.Button({
+                style_class: isAutoCopy ? 'translate-floating-toggle-btn active' : 'translate-floating-toggle-btn',
+                reactive: true,
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER
+            });
+            
+            let toggleIcon = new St.Icon({
+                icon_name: isAutoCopy ? 'checkbox-checked-symbolic' : 'checkbox-symbolic',
+                style_class: 'translate-btn-icon'
+            });
+            autoCopyBtn.set_child(toggleIcon);
+            
+            autoCopyBtn.connect('clicked', () => {
+                let current = this._settings.get_boolean('floating-auto-copy');
+                let next = !current;
+                this._settings.set_boolean('floating-auto-copy', next);
+                
+                autoCopyBtn.style_class = next ? 'translate-floating-toggle-btn active' : 'translate-floating-toggle-btn';
+                toggleIcon.icon_name = next ? 'checkbox-checked-symbolic' : 'checkbox-symbolic';
+            });
+            
+            autoCopyBox.add_child(autoCopyBtn);
+            autoCopyBox.add_child(autoCopyLabel);
+            actions.add_child(autoCopyBox);
+        }
+
         this.actor.add_child(actions);
 
         // Center on primary monitor

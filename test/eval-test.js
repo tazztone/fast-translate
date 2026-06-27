@@ -463,8 +463,8 @@ global.testRunnerPromise = (async () => {
             }
 
             // Test 8b: Auto Copy functionality for Double-copy
-            const originalAutoCopyState = indicator.floatingAutoCopySwitch.state;
-            indicator.floatingAutoCopySwitch.state = true;
+            const originalAutoCopyState = indicator._settings.get_boolean('floating-auto-copy');
+            indicator._settings.set_boolean('floating-auto-copy', true);
             try {
                 let autoCopiedText = "";
                 Clipboard.set_text = function(type, text) {
@@ -502,7 +502,7 @@ global.testRunnerPromise = (async () => {
                     indicator._floatingWindow = null;
                 }
             } finally {
-                indicator.floatingAutoCopySwitch.state = originalAutoCopyState;
+                indicator._settings.set_boolean('floating-auto-copy', originalAutoCopyState);
             }
 
         } catch (e) {

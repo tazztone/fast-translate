@@ -273,4 +273,28 @@
     max-height: 180px;
 }
 
+.translate-floating-autocopy-box {
+    spacing: 8px;
+}
+
+.translate-floating-autocopy-label {
+    font-size: 22px;
+    color: #e0e0e0;
+}
+
+.translate-floating-toggle-btn {
+    padding: 6px;
+    border-radius: 8px;
+    background-color: transparent;
+    color: #888888;
+}
+
+.translate-floating-toggle-btn.active {
+    color: #3584e4;
+}
+
+.translate-floating-toggle-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
 
