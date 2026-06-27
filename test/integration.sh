@@ -5,7 +5,7 @@ echo "🔨 Compiling GSettings schemas..."
 glib-compile-schemas schemas/
 
 echo "📦 Deploying extension to local GNOME directory..."
-EXT_DIR="$HOME/.local/share/gnome-shell/extensions/translate-assistant@atareao.es"
+EXT_DIR="$HOME/.local/share/gnome-shell/extensions/fast-translate@tazztone.github.io"
 mkdir -p "$EXT_DIR"
 if [ "$(realpath "$EXT_DIR")" != "$(realpath .)" ]; then
     cp -rf extension.js prefs.js translation-helper.js metadata.json stylesheet.css icons schemas "$EXT_DIR/"
@@ -36,11 +36,11 @@ dbus-run-session bash -c '
     echo "⏳ Waiting for GNOME Shell to initialize..."
     sleep 5
 
-    echo "⚡ Enabling translate-assistant..."
-    gnome-extensions enable translate-assistant@atareao.es
+    echo "⚡ Enabling fast-translate..."
+    gnome-extensions enable fast-translate@tazztone.github.io
 
     echo "🔍 Fetching extension details..."
-    INFO=$(gnome-extensions info translate-assistant@atareao.es || echo "Command failed")
+    INFO=$(gnome-extensions info fast-translate@tazztone.github.io || echo "Command failed")
     echo "-----------------------------------"
     echo "$INFO"
     echo "-----------------------------------"
@@ -50,7 +50,7 @@ dbus-run-session bash -c '
         exit 1
     fi
 
-    if ! echo "$INFO" | grep -q "translate-assistant@atareao.es"; then
+    if ! echo "$INFO" | grep -q "fast-translate@tazztone.github.io"; then
         echo "❌ Integration test failed: Extension could not be found or registered!"
         exit 1
     fi

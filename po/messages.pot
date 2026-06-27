@@ -1,138 +1,450 @@
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
+# <LANGUAGE> translation for the Fast Translate GNOME Shell Extension.
+# Copyright (C) 2026 Lorenzo Carbonell, tazztone
+# This file is distributed under the same license as the fast-translate@tazztone.github.io package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-05-22 06:42+0200\n"
+"Project-Id-Version: fast-translate@tazztone.github.io\n"
+"Report-Msgid-Bugs-To: https://github.com/tazztone/translate-assistant/issues\n"
+"POT-Creation-Date: 2026-06-27 16:06+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:70
-msgid "Source language"
+#: extension.js:175 prefs.js:181
+msgid "Auto Paste from clipboard"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:71
+#: extension.js:184 prefs.js:188
+msgid "Auto Translate"
+msgstr ""
+
+#: extension.js:192 prefs.js:195
+msgid "Auto Copy to clipboard"
+msgstr ""
+
+#: extension.js:203
+msgid "Settings"
+msgstr ""
+
+#: extension.js:218
+msgid "Automatically paste clipboard text when menu opens"
+msgstr ""
+
+#: extension.js:219
+msgid "Translate input text automatically while typing"
+msgstr ""
+
+#: extension.js:220
+msgid "Copy translation results to clipboard automatically"
+msgstr ""
+
+#: extension.js:221
+msgid "Open extension preferences"
+msgstr ""
+
+#: extension.js:417 extension.js:981
+msgid "Cancel"
+msgstr ""
+
+#: extension.js:437 extension.js:479 extension.js:613 extension.js:649
+msgid "Invalid URL"
+msgstr ""
+
+#: extension.js:440 extension.js:482 extension.js:615 extension.js:651
+msgid "Error"
+msgstr ""
+
+#: extension.js:443 extension.js:485 extension.js:497 extension.js:512
+#: extension.js:891
+msgid "Translate"
+msgstr ""
+
+#: extension.js:533 extension.js:573
+msgid "Translated"
+msgstr ""
+
+#: extension.js:537 extension.js:685
+msgid "Rate-limited or blocked by Google Translate. Please try again later."
+msgstr ""
+
+#: extension.js:539 extension.js:687
+msgid "Auth failed (403): check API key and URL in settings"
+msgstr ""
+
+#: extension.js:548
+msgid "Cancelled"
+msgstr ""
+
+#: extension.js:806
+msgid "Type or paste text..."
+msgstr ""
+
+#: extension.js:922
+msgid "Translation will appear here..."
+msgstr ""
+
+#: extension.js:976
+msgid "Swap languages"
+msgstr ""
+
+#: extension.js:977
+msgid "Paste from clipboard"
+msgstr ""
+
+#: extension.js:978
+msgid "Clear text"
+msgstr ""
+
+#: extension.js:979
+msgid "Copy translation to clipboard"
+msgstr ""
+
+#: extension.js:981
+msgid "Cancel translation"
+msgstr ""
+
+#: extension.js:981
+msgid "Translate text"
+msgstr ""
+
+#: extension.js:984
+msgid "Source language: "
+msgstr ""
+
+#: extension.js:984
+msgid "Auto"
+msgstr ""
+
+#: extension.js:987
+msgid "Target language: "
+msgstr ""
+
+#: extension.js:1339
+msgid "Auto Copy"
+msgstr ""
+
+#: prefs.js:44
+msgid "General"
+msgstr ""
+
+#: prefs.js:51
+msgid "Language Settings"
+msgstr ""
+
+#: prefs.js:59
+msgid "Translation Service"
+msgstr ""
+
+#: prefs.js:60
+msgid "The translation service provider to use"
+msgstr ""
+
+#: prefs.js:78
+msgid "Source Language"
+msgstr ""
+
+#: prefs.js:79 schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:81
 msgid "Language of the text to be translated"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:75
-msgid "Target language"
+#: prefs.js:95
+msgid "Target Language"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:76
+#: prefs.js:96 schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:86
 msgid "The language into which the text should be translated"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:80
-msgid "Split sentences"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:81
-msgid ""
-"Sets whether the translation engine should first split the input into "
-"sentences"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:85
-msgid "Preserve formatting"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:86
-msgid ""
-"Sets whether the translation engine should respect the original formatting, "
-"even if it would usually correct some aspects"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:90
+#: prefs.js:112
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:100
 msgid "Formality"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:91
+#: prefs.js:113
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:101
 msgid ""
 "Sets whether the translated text should lean towards formal or informal "
 "language"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:95
+#: prefs.js:127
+msgid "DeepL Translation API Configuration"
+msgstr ""
+
+#: prefs.js:133
+msgid "DeepL API URL"
+msgstr ""
+
+#: prefs.js:140
+msgid "API Key"
+msgstr ""
+
+#: prefs.js:148
+msgid "Formatting Options"
+msgstr ""
+
+#: prefs.js:153
+msgid "Split Sentences"
+msgstr ""
+
+#: prefs.js:154
+msgid "Split the input text into sentences before translating"
+msgstr ""
+
+#: prefs.js:160
+msgid "Preserve Formatting"
+msgstr ""
+
+#: prefs.js:161
+msgid "Respect original formatting details"
+msgstr ""
+
+#: prefs.js:169
+msgid "Behavior"
+msgstr ""
+
+#: prefs.js:176
+msgid "Automatic Actions"
+msgstr ""
+
+#: prefs.js:182
+msgid "Paste clipboard content automatically into the input field"
+msgstr ""
+
+#: prefs.js:189 prefs.js:380
+msgid "Translate automatically when input is populated"
+msgstr ""
+
+#: prefs.js:196
+msgid "Copy translations automatically to the clipboard"
+msgstr ""
+
+#: prefs.js:202
+msgid "Auto Copy (Floating) to clipboard"
+msgstr ""
+
+#: prefs.js:203
+msgid "Copy floating translation results automatically to the clipboard"
+msgstr ""
+
+#: prefs.js:209
+msgid "Double-copy Background Mode"
+msgstr ""
+
+#: prefs.js:210
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:146
+msgid ""
+"Translate in background on double-copy instead of showing the floating window"
+msgstr ""
+
+#: prefs.js:216
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:150
+msgid "Show Notification in Background Mode"
+msgstr ""
+
+#: prefs.js:217
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:151
+msgid "Display a notification when background translation finishes"
+msgstr ""
+
+#: prefs.js:227
+msgid "System & Style"
+msgstr ""
+
+#: prefs.js:234
+msgid "Style & Integration"
+msgstr ""
+
+#: prefs.js:239
+msgid "Show Notifications"
+msgstr ""
+
+#: prefs.js:240
+msgid "Show system notifications upon translation completions"
+msgstr ""
+
+#: prefs.js:246
+msgid "Dark Theme Indicator"
+msgstr ""
+
+#: prefs.js:247
+msgid "Use dark theme panel icons (disable for light theme icons)"
+msgstr ""
+
+#: prefs.js:254
+msgid "Keyboard Shortcuts"
+msgstr ""
+
+#: prefs.js:259
+msgid "Clipboard Translation Shortcut"
+msgstr ""
+
+#: prefs.js:260
+msgid ""
+"Click and press key combination to set shortcut. Escape/Backspace to clear"
+msgstr ""
+
+#: prefs.js:274
+msgid "None"
+msgstr ""
+
+#: prefs.js:308
+msgid "About"
+msgstr ""
+
+#: prefs.js:314
+msgid "Extension Details"
+msgstr ""
+
+#: prefs.js:319
+msgid "Version"
+msgstr ""
+
+#: prefs.js:325
+msgid "Author"
+msgstr ""
+
+#: prefs.js:331
+msgid "Description"
+msgstr ""
+
+#: prefs.js:338
+msgid "Links & Support"
+msgstr ""
+
+#: prefs.js:343
+msgid "Project Homepage"
+msgstr ""
+
+#: prefs.js:358
+msgid "Buy me a coffee"
+msgstr ""
+
+#: prefs.js:382
+msgid ""
+"Translate automatically when input is populated. Warning: Your IP address "
+"may get banned for API abuse."
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:75
+msgid "Translation service"
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:76
+msgid "The translation service to use (DeepL or Google Translate)"
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:80
+msgid "Source language"
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:85
+msgid "Target language"
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:90
+msgid "Split sentences"
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:91
+msgid ""
+"Sets whether the translation engine should first split the input into "
+"sentences"
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:95
+msgid "Preserve formatting"
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:96
+msgid ""
+"Sets whether the translation engine should respect the original formatting, "
+"even if it would usually correct some aspects"
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:105
 msgid "Url"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:96
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:106
 msgid "The url of DeepL"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:100
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:110
 msgid "DeepL API key"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:101
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:111
 msgid "Set DeepL API key"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:105
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:115
 msgid "Shortcut"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:106
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:116
 msgid "Shortcut to translate the content of the clipboard"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:110
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:120
 msgid "Show notifications"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:111
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:121
 msgid "Show notifications on translation"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:115
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:125
 msgid "Dark theme"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:116
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:126
 msgid "Enable dark theme otherwise light theme"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:120
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:130
 msgid "Auto paste"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:121
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:131
 msgid "Paste automatically the content of the clipboard in the input text box"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:125
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:135
 msgid "Auto copy"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:126
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:136
 msgid "Copy automatically the content of the output box in the clipboard"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:130
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:140
+msgid "Floating Auto Copy"
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:141
+msgid ""
+"Copy automatically the content of the floating translation window to the "
+"clipboard"
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:145
+msgid "Background Mode"
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:155
 msgid "Auto translate"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.translate-assistant.gschema.xml:131
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:156
 msgid ""
 "Translate automatically the content of the input box and the set the result "
 "in the output box"
-msgstr ""
-
-#: dialogwidgets.js:53
-msgid "Cancel"
-msgstr ""
-
-#: dialogwidgets.js:54
-msgid "Ok"
 msgstr ""

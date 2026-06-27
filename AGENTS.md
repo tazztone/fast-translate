@@ -2,17 +2,17 @@
 
 ## Extension Identity
 
-- UUID: `translate-assistant@atareao.es`
-- Installed path: `~/.local/share/gnome-shell/extensions/translate-assistant@atareao.es/`
+- UUID: `fast-translate@tazztone.github.io`
+- Installed path: `~/.local/share/gnome-shell/extensions/fast-translate@tazztone.github.io/`
 
 ## Deployment — CRITICAL RULES
 
 - **NEVER run `gnome-extensions install` or `gnome-extensions pack` from within this repo directory.**
   The install tool follows symlinks and will wipe the source directory contents.
-- The dev workflow is a **symlink**: `~/.local/share/gnome-shell/extensions/translate-assistant@atareao.es/` → this repo.
+- The dev workflow is a **symlink**: `~/.local/share/gnome-shell/extensions/fast-translate@tazztone.github.io/` → this repo.
   Edits here take effect immediately on next extension reload — no install step needed.
-- To reload after changes: `gnome-extensions disable translate-assistant@atareao.es && gnome-extensions enable translate-assistant@atareao.es`
-- To verify the symlink is intact: `readlink ~/.local/share/gnome-shell/extensions/translate-assistant@atareao.es`
+- To reload after changes: `gnome-extensions disable fast-translate@tazztone.github.io && gnome-extensions enable fast-translate@tazztone.github.io`
+- To verify the symlink is intact: `readlink ~/.local/share/gnome-shell/extensions/fast-translate@tazztone.github.io`
   Expected output: an absolute path pointing to this repo, not a real directory.
 
 ## DeepL API

@@ -2,7 +2,7 @@ global.testRunnerResult = null;
 global.testRunnerPromise = (async () => {
     try {
         const Main = await import("resource:///org/gnome/shell/ui/main.js");
-        const ext = Main.extensionManager.lookup("translate-assistant@atareao.es");
+        const ext = Main.extensionManager.lookup("fast-translate@tazztone.github.io");
         if (!ext) {
             return { success: false, error: "Extension not found" };
         }

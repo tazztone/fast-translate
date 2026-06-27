@@ -1,14 +1,14 @@
 {
-  "description": "Translate with DeepL Translator",
-  "extension-id": "translate-assistant@atareao.es",
-  "gettext-domain": "translate-assistant@atareao.es",
-  "icon": "translate-assistant-icon",
-  "name": "Translate assistant",
-  "settings-schema": "org.gnome.shell.extensions.translate-assistant",
+  "description": "Translate with Google and DeepL Translator",
+  "extension-id": "fast-translate@tazztone.github.io",
+  "gettext-domain": "fast-translate@tazztone.github.io",
+  "icon": "fast-translate-icon",
+  "name": "Fast Translate",
+  "settings-schema": "org.gnome.shell.extensions.fast-translate",
   "shell-version": [
     "45", "46", "47", "48", "49", "50"
   ],
   "url": "https://github.com/tazztone/translate-assistant",
-  "uuid": "translate-assistant@atareao.es",
+  "uuid": "fast-translate@tazztone.github.io",
   "version": 10
 }

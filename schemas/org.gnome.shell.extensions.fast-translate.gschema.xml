@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<schemalist gettext-domain="translate-assistant@atareao.es">
-    <enum id="org.gnome.shell.extensions.translate-assistant.source-lang">
+<schemalist gettext-domain="fast-translate@tazztone.github.io">
+    <enum id="org.gnome.shell.extensions.fast-translate.source-lang">
         <value value="0" nick="Auto (AUTO)"/>
         <value value="1" nick="Bulgarian (BG)"/>
         <value value="2" nick="Czech (CS)"/>
@@ -29,7 +29,7 @@
         <value value="25" nick="Turkish (TR)"/>
         <value value="26" nick="Chinese (ZH)"/>
     </enum>
-    <enum id="org.gnome.shell.extensions.translate-assistant.target-lang">
+    <enum id="org.gnome.shell.extensions.fast-translate.target-lang">
         <value value="0" nick="Bulgarian (BG)"/>
         <value value="1" nick="Czech (CS)"/>
         <value value="2" nick="Danish (DA)"/>
@@ -59,28 +59,28 @@
         <value value="26" nick="Turkish (TR)"/>
         <value value="27" nick="Chinese (ZH)"/>
     </enum>
-    <enum id="org.gnome.shell.extensions.translate-assistant.formality">
+    <enum id="org.gnome.shell.extensions.fast-translate.formality">
         <value value="0" nick="default"/>
         <value value="1" nick="more"/>
         <value value="2" nick="less"/>
     </enum>
-    <enum id="org.gnome.shell.extensions.translate-assistant.translation-service">
+    <enum id="org.gnome.shell.extensions.fast-translate.translation-service">
         <value value="0" nick="DeepL"/>
         <value value="1" nick="Google Translate"/>
     </enum>
 
-    <schema path="/org/gnome/shell/extensions/translate-assistant/" id="org.gnome.shell.extensions.translate-assistant">
-        <key name="translation-service" enum="org.gnome.shell.extensions.translate-assistant.translation-service">
+    <schema path="/org/gnome/shell/extensions/fast-translate/" id="org.gnome.shell.extensions.fast-translate">
+        <key name="translation-service" enum="org.gnome.shell.extensions.fast-translate.translation-service">
             <default>'Google Translate'</default>
             <summary>Translation service</summary>
             <description>The translation service to use (DeepL or Google Translate)</description>
         </key>
-        <key name="source-lang" enum="org.gnome.shell.extensions.translate-assistant.source-lang">
+        <key name="source-lang" enum="org.gnome.shell.extensions.fast-translate.source-lang">
             <default>'Auto (AUTO)'</default>
             <summary>Source language</summary>
             <description>Language of the text to be translated</description>
         </key>
-        <key name="target-lang" enum="org.gnome.shell.extensions.translate-assistant.target-lang">
+        <key name="target-lang" enum="org.gnome.shell.extensions.fast-translate.target-lang">
             <default>'Spanish (ES)'</default>
             <summary>Target language</summary>
             <description>The language into which the text should be translated</description>
@@ -95,7 +95,7 @@
             <summary>Preserve formatting</summary>
             <description>Sets whether the translation engine should respect the original formatting, even if it would usually correct some aspects</description>
         </key>
-        <key name="formality" enum="org.gnome.shell.extensions.translate-assistant.formality">
+        <key name="formality" enum="org.gnome.shell.extensions.fast-translate.formality">
             <default>'default'</default>
             <summary>Formality</summary>
             <description>Sets whether the translated text should lean towards formal or informal language</description>

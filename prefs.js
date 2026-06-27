@@ -1,5 +1,5 @@
 /*
- * translate-assistant@atareao.es
+ * fast-translate@tazztone.github.io
  *
  * Copyright (c) 2022 Lorenzo Carbonell Cerezo <a.k.a. atareao>
  *
@@ -30,7 +30,7 @@ import GLib from "gi://GLib";
 import GObject from "gi://GObject";
 import { ExtensionPreferences, gettext as _ } from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
-export default class TranslateAssistantPreferences extends ExtensionPreferences {
+export default class FastTranslatePreferences extends ExtensionPreferences {
     constructor(metadata) {
         super(metadata);
         this.initTranslations(this.metadata['gettext-domain']);

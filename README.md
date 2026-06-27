@@ -1,11 +1,10 @@
-
 <!-- start project-info -->
 <!--
-project_title: Translate assistant
-github_project: https://github.com/tazztone/translate-assistant
+project_title: Fast Translate
+github_project: https://github.com/tazztone/fast-translate
 license: MIT
-icon: icons/translate-assistant-icon.svg
-homepage: https://github.com/tazztone/translate-assistant
+icon: icons/fast-translate-icon.svg
+homepage: https://github.com/tazztone/fast-translate
 license-badge: True
 contributors-badge: True
 lastcommit-badge: True
@@ -16,21 +15,21 @@ lastcommit-badge: True
 <!-- start badges -->
 
 ![License MIT](https://img.shields.io/badge/license-MIT-green)
-![Contributors](https://img.shields.io/github/contributors-anon/tazztone/translate-assistant)
-![Last commit](https://img.shields.io/github/last-commit/tazztone/translate-assistant)
+![Contributors](https://img.shields.io/github/contributors-anon/tazztone/fast-translate)
+![Last commit](https://img.shields.io/github/last-commit/tazztone/fast-translate)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-tazztone-yellow?logo=buy-me-a-coffee)](https://buymeacoffee.com/tazztone)
 <!-- end badges -->
 
 <!-- start description -->
-<h1 align="center">Welcome to <span id="project_title">Translate Assistant for GNOME Shell</span> 👋</h1>
+<h1 align="center">Welcome to <span id="project_title">Fast Translate for GNOME Shell</span> 👋</h1>
 <p>
-<a href="https://github.com/tazztone/translate-assistant" id="homepage" rel="nofollow">
-<img align="right" height="128" id="icon" src="icons/translate-assistant-icon.svg" width="128"/>
+<a href="https://github.com/tazztone/fast-translate" id="homepage" rel="nofollow">
+<img align="right" height="128" id="icon" src="icons/fast-translate-icon.svg" width="128"/>
 </a>
 </p>
-<h2>🏠 <a href="https://github.com/tazztone/translate-assistant" id="homepage">Homepage</a></h2>
+<h2>🏠 <a href="https://github.com/tazztone/fast-translate" id="homepage">Homepage</a></h2>
 
-<span id="project_title">Translate Assistant for GNOME Shell</span> is a GNOME Shell extension that brings **Google Translate and DeepL-powered translation** directly into your desktop — translate text from a panel popup or trigger instant clipboard translation with a double-copy shortcut.
+<span id="project_title">Fast Translate for GNOME Shell</span> is a GNOME Shell extension that brings **Google Translate and DeepL-powered translation** directly into your desktop — translate text from a panel popup or trigger instant clipboard translation with a double-copy shortcut.
 
 ## ✨ Features
 
@@ -55,20 +54,20 @@ lastcommit-badge: True
 
 <!-- start installing -->
 
-## Installing <span id="project_title">Translate Assistant for GNOME Shell</span>
+## Installing <span id="project_title">Fast Translate for GNOME Shell</span>
 
 ### From GNOME Extensions (recommended)
 
-1. Visit the [Translate Assistant page on extensions.gnome.org](https://extensions.gnome.org/extension/5124/translate-assistant/).
+1. Visit the [Fast Translate page on extensions.gnome.org](https://extensions.gnome.org/extension/5124/translate-assistant/). *(Note: The extension will be submitted under Fast Translate)*
 2. Toggle the switch to **On** — the browser integration installs and enables the extension automatically.
 
 ### Manual installation
 
 ```bash
-git clone https://github.com/tazztone/translate-assistant.git
-ln -s "$(pwd)/translate-assistant" \
-  ~/.local/share/gnome-shell/extensions/translate-assistant@atareao.es
-gnome-extensions enable translate-assistant@atareao.es
+git clone https://github.com/tazztone/fast-translate.git
+ln -s "$(pwd)/fast-translate" \
+  ~/.local/share/gnome-shell/extensions/fast-translate@tazztone.github.io
+gnome-extensions enable fast-translate@tazztone.github.io
 ```
 
 > **Note**: Do **not** use `gnome-extensions install` from inside the repo — it follows symlinks and will overwrite the source directory. The symlink approach above is the safe dev workflow.
@@ -77,7 +76,7 @@ gnome-extensions enable translate-assistant@atareao.es
 
 <!-- start using -->
 
-## Using <span id="project_title">Translate Assistant for GNOME Shell</span>
+## Using <span id="project_title">Fast Translate for GNOME Shell</span>
 
 Once enabled, the extension icon appears in the GNOME top bar. Click it to open the translation popup, type or paste text, choose your languages, and hit **Translate**.
 
@@ -94,7 +93,7 @@ Copy any text normally, then press `Ctrl+C` a second time within ~500 ms. Depend
 
 ### Preferences
 
-Open **GNOME Settings → Extensions → Translate Assistant → Settings** to configure:
+Open **GNOME Settings → Extensions → Fast Translate → Settings** to configure:
 
 - Active translation service (Google Translate or DeepL)
 - DeepL API key & URL (automatically hidden when Google Translate is selected)
@@ -114,8 +113,8 @@ Open **GNOME Settings → Extensions → Translate Assistant → Settings** to c
 glib-compile-schemas schemas/
 
 # Reload the extension after changes
-gnome-extensions disable translate-assistant@atareao.es
-gnome-extensions enable translate-assistant@atareao.es
+gnome-extensions disable fast-translate@tazztone.github.io
+gnome-extensions enable fast-translate@tazztone.github.io
 
 # Watch logs in real time
 journalctl -f -o cat /usr/bin/gnome-shell
@@ -221,3 +220,9 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 ## 📄 License
 
 [MIT](./LICENSE) © Lorenzo Carbonell Cerezo (atareao) & contributors
+
+---
+
+## 🤝 Credits & Attribution
+
+This project is a fork of the original [atareao/translate-assistant](https://github.com/atareao/translate-assistant) extension by Lorenzo Carbonell Cerezo, licensed under the MIT License. Significant features (including Google Translate default backend, Ctrl+C+C double-copy instant translation, background mode, inline flag-emoji grid selection, high-DPI scaling, and integration tests) were added in this fork.

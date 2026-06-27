@@ -10,14 +10,14 @@ echo "Generating 'messages.pot'..."
 xgettext --from-code=UTF-8 \
          --add-comments=Translators \
          --copyright-holder="Lorenzo Carbonell" \
-         --package-name="translate-assistant@atareao.es" \
+         --package-name="fast-translate@tazztone.github.io" \
          --output=po/messages.pot \
          -- *.js schemas/*.xml
 
 #Replace some lines of the header with our own
-sed -i '1s/.*/# <LANGUAGE> translation for the Battery Status GNOME Shell Extension./' po/messages.pot
-sed -i "2s/.*/# Copyright (C) $(date +%Y) Lorenzo Carbonell/" po/messages.pot
-sed -i '10s/.*/"Report-Msgid-Bugs-To: https:\/\/github.com\/atareao\/translate-assistant\/issues\n/"' po/messages.pot
+sed -i '1s|.*|# <LANGUAGE> translation for the Fast Translate GNOME Shell Extension.|' po/messages.pot
+sed -i "2s|.*|# Copyright (C) $(date +%Y) Lorenzo Carbonell, tazztone|" po/messages.pot
+sed -i '10s|.*|"Report-Msgid-Bugs-To: https://github.com/tazztone/translate-assistant/issues\\n"|' po/messages.pot
 sed -i '17s/CHARSET/UTF-8/' po/messages.pot
 
 echo "'messages.pot' generated!"

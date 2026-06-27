@@ -1,5 +1,5 @@
 /*
- * translate-assistant@atareao.es
+ * fast-translate@tazztone.github.io
  *
  * Copyright (c) 2022 Lorenzo Carbonell Cerezo <a.k.a. atareao>
  *
@@ -136,10 +136,10 @@ class Tooltip {
     hide() { this._hide(); }
 }
 
-var TranslateAssistant = GObject.registerClass(
-    class TranslateAssistant extends PanelMenu.Button {
+var FastTranslate = GObject.registerClass(
+    class FastTranslate extends PanelMenu.Button {
         _init(extension) {
-            super._init(0.5, 'TranslateAssistant', false);
+            super._init(0.5, 'FastTranslate', false);
             this._extension = extension;
             this._settings = extension.getSettings();
 
@@ -530,7 +530,7 @@ var TranslateAssistant = GObject.registerClass(
                                 }
                                 
                                 if (this._notifications) {
-                                    Main.notify("Translate Assistant", _("Translated"));
+                                    Main.notify("Fast Translate", _("Translated"));
                                 }
                                 callback(toText);
                             } else if (this._translation_service === 1 && (message.status_code === 403 || message.status_code === 429)) {
@@ -612,7 +612,7 @@ var TranslateAssistant = GObject.registerClass(
                     message = Soup.Message.new('POST', url);
                     if (!message) throw new Error(_("Invalid URL"));
                 } catch (e) {
-                    Main.notify("Translate Assistant", `${_("Error")}: ${e.message}`);
+                    Main.notify("Fast Translate", `${_("Error")}: ${e.message}`);
                     return;
                 }
 
@@ -648,7 +648,7 @@ var TranslateAssistant = GObject.registerClass(
                     message = Soup.Message.new('POST', this._url);
                     if (!message) throw new Error(_("Invalid URL"));
                 } catch (e) {
-                    Main.notify("Translate Assistant", `${_("Error")}: ${e.message}`);
+                    Main.notify("Fast Translate", `${_("Error")}: ${e.message}`);
                     return;
                 }
 
@@ -682,15 +682,15 @@ var TranslateAssistant = GObject.registerClass(
                             }
                             callback(toText);
                         } else if (this._translation_service === 1 && (message.status_code === 403 || message.status_code === 429)) {
-                            Main.notify("Translate Assistant", _("Rate-limited or blocked by Google Translate. Please try again later."));
+                            Main.notify("Fast Translate", _("Rate-limited or blocked by Google Translate. Please try again later."));
                         } else if (message.status_code === 403) {
-                            Main.notify("Translate Assistant", _("Auth failed (403): check API key and URL in settings"));
+                            Main.notify("Fast Translate", _("Auth failed (403): check API key and URL in settings"));
                         } else {
-                            Main.notify("Translate Assistant", `Error: ${message.status_code}`);
+                            Main.notify("Fast Translate", `Error: ${message.status_code}`);
                         }
                     } catch (e) {
                         if (this._destroyed) return;
-                        Main.notify("Translate Assistant", `Error: ${e.message || e}`);
+                        Main.notify("Fast Translate", `Error: ${e.message || e}`);
                     }
                 }
             );
@@ -700,7 +700,7 @@ var TranslateAssistant = GObject.registerClass(
             if (this.errorLabel) {
                 this.errorLabel.text = messageText;
             } else {
-                Main.notify("Translate Assistant", messageText);
+                Main.notify("Fast Translate", messageText);
             }
         }
 
@@ -1019,7 +1019,7 @@ var TranslateAssistant = GObject.registerClass(
             let active = this.autoPasteSwitch.state;
             let themeString = (this._darktheme ? 'dark' : 'light');
             let statusString = (active ? 'active' : 'paused');
-            let iconString = `translate-assistant-${statusString}-${themeString}`;
+            let iconString = `fast-translate-${statusString}-${themeString}`;
             this.icon.set_gicon(this._get_icon(iconString));
         }
 
@@ -1178,14 +1178,14 @@ var TranslateAssistant = GObject.registerClass(
     }
 );
 
-export default class TranslateAssistantExtension extends Extension {
+export default class FastTranslateExtension extends Extension {
     constructor(metadata) {
         super(metadata);
         this.initTranslations(this.metadata['gettext-domain']);
     }
 
     enable() {
-        this._indicator = new TranslateAssistant(this);
+        this._indicator = new FastTranslate(this);
         Main.panel.addToStatusArea(this.uuid, this._indicator, 0, 'right');
     }
 
