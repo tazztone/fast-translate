@@ -326,6 +326,47 @@ global.testRunnerPromise = (async () => {
                 return { success: false, error: "Floating window was not destroyed after clicking Copy button!" };
             }
 
+            // Test 8b: Auto Copy functionality for Double-copy
+            const originalAutoCopyState = indicator.floatingAutoCopySwitch.state;
+            indicator.floatingAutoCopySwitch.state = true;
+            try {
+                let autoCopiedText = "";
+                Clipboard.set_text = function(type, text) {
+                    autoCopiedText = text;
+                };
+
+                // Trigger double copy flow again
+                mockClipboardText = "Auto Copy Test input text";
+                indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null); // 1st
+                indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null); // 2nd
+
+                if (!independentTranslationCallback) {
+                    Clipboard.get_text = originalClipboardGetText;
+                    Clipboard.set_text = originalClipboardSetText;
+                    indicator._translateTextIndependent = originalTranslateTextIndependent;
+                    return { success: false, error: "Auto-copy test did not trigger independent translation callback!" };
+                }
+
+                // Simulate translation completing
+                independentTranslationCallback("Auto Copy Test translated text");
+
+                // Verify that it auto-copied to clipboard immediately without clicking the copy button
+                if (autoCopiedText !== "Auto Copy Test translated text") {
+                    Clipboard.get_text = originalClipboardGetText;
+                    Clipboard.set_text = originalClipboardSetText;
+                    indicator._translateTextIndependent = originalTranslateTextIndependent;
+                    return { success: false, error: "Auto-copy failed to automatically copy translated text! Got: " + autoCopiedText };
+                }
+
+                // Clean up the spawned window
+                if (indicator._floatingWindow) {
+                    indicator._floatingWindow.destroy();
+                    indicator._floatingWindow = null;
+                }
+            } finally {
+                indicator.floatingAutoCopySwitch.state = originalAutoCopyState;
+            }
+
         } catch (e) {
             Clipboard.get_text = originalClipboardGetText;
             Clipboard.set_text = originalClipboardSetText;

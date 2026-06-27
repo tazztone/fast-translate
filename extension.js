@@ -150,6 +150,8 @@ var TranslateAssistant = GObject.registerClass(
             this._settingsChangedId = null;
             this._clipboardTimeoutId = null;
             this._selectionOwnerChangedId = null;
+            this._isInternalCopy = false;
+            this._internalCopyTimeoutId = null;
 
             /* Icon indicator */
             let box = new St.BoxLayout();
@@ -168,7 +170,7 @@ var TranslateAssistant = GObject.registerClass(
 
             /* Toggles at the bottom */
             this.autoPasteSwitch = new PopupMenu.PopupSwitchMenuItem(
-                _('Auto Paste'), this._getValue("auto-paste"), {});
+                _('Auto Paste from clipboard'), this._getValue("auto-paste"), {});
             this.menu.addMenuItem(this.autoPasteSwitch);
             this.autoPasteSwitch.connect('toggled', (item, state) => {
                 this._settings.set_boolean('auto-paste', state);
@@ -183,10 +185,17 @@ var TranslateAssistant = GObject.registerClass(
             });
 
             this.autoCopySwitch = new PopupMenu.PopupSwitchMenuItem(
-                _('Auto Copy'), this._getValue("auto-copy"), {});
+                _('Auto Copy to clipboard'), this._getValue("auto-copy"), {});
             this.menu.addMenuItem(this.autoCopySwitch);
             this.autoCopySwitch.connect('toggled', (item, state) => {
                 this._settings.set_boolean('auto-copy', state);
+            });
+
+            this.floatingAutoCopySwitch = new PopupMenu.PopupSwitchMenuItem(
+                _('Auto Copy (Floating) to clipboard'), this._getValue("floating-auto-copy"), {});
+            this.menu.addMenuItem(this.floatingAutoCopySwitch);
+            this.floatingAutoCopySwitch.connect('toggled', (item, state) => {
+                this._settings.set_boolean('floating-auto-copy', state);
             });
 
             /* Separator */
@@ -211,6 +220,7 @@ var TranslateAssistant = GObject.registerClass(
             this._addTooltip(this.autoPasteSwitch, _("Automatically paste clipboard text when menu opens"));
             this._addTooltip(this.autoTranslateSwitch, _("Translate input text automatically while typing"));
             this._addTooltip(this.autoCopySwitch, _("Copy translation results to clipboard automatically"));
+            this._addTooltip(this.floatingAutoCopySwitch, _("Copy floating translation results to clipboard automatically"));
             this._addTooltip(this.settingsMenuItem, _("Open extension preferences"));
 
             this.menu.connect('open-state-changed', (menu, isOpen) => {
@@ -273,6 +283,14 @@ var TranslateAssistant = GObject.registerClass(
 
         _onSelectionChange(_a, selectionType, _b) {
             if (selectionType === Meta.SelectionType.SELECTION_CLIPBOARD) {
+                if (this._isInternalCopy) {
+                    this._isInternalCopy = false;
+                    if (this._internalCopyTimeoutId) {
+                        GLib.Source.remove(this._internalCopyTimeoutId);
+                        this._internalCopyTimeoutId = null;
+                    }
+                    return;
+                }
                 let now = GLib.get_monotonic_time();
                 if (this._lastSelectionTime && (now - this._lastSelectionTime) < 500000) {
                     Clipboard.get_text(CLIPBOARD_TYPE, (_, fromText) => {
@@ -342,6 +360,9 @@ var TranslateAssistant = GObject.registerClass(
             this.autoPasteSwitch.setToggleState(this._getValue('auto-paste'));
             this.autoTranslateSwitch.setToggleState(this._getValue('auto-translate'));
             this.autoCopySwitch.setToggleState(this._getValue('auto-copy'));
+            if (this.floatingAutoCopySwitch) {
+                this.floatingAutoCopySwitch.setToggleState(this._getValue('floating-auto-copy'));
+            }
 
             this._set_icon_indicator();
             this._unbindShortcut();
@@ -497,8 +518,14 @@ var TranslateAssistant = GObject.registerClass(
                         this._target_lang,
                         () => {
                             this._floatingWindow = null;
+                        },
+                        (text) => {
+                            this._copyToClipboard(text);
                         }
                     );
+                    if (this.floatingAutoCopySwitch.state === true) {
+                        this._copyToClipboard(toText);
+                    }
                 }
             });
         }
@@ -587,6 +614,16 @@ var TranslateAssistant = GObject.registerClass(
         }
 
         _copyToClipboard(inText) {
+            this._isInternalCopy = true;
+            if (this._internalCopyTimeoutId) {
+                GLib.Source.remove(this._internalCopyTimeoutId);
+            }
+            this._internalCopyTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+                this._isInternalCopy = false;
+                this._internalCopyTimeoutId = null;
+                return GLib.SOURCE_REMOVE;
+            });
+
             if (this.autoPasteSwitch.state === true) {
                 this.autoPasteSwitch.setToggleState(false);
                 Clipboard.set_text(CLIPBOARD_TYPE, inText);
@@ -1022,6 +1059,10 @@ var TranslateAssistant = GObject.registerClass(
             this._unbindShortcut();
             this._clearClipboardTimeout();
             this._disconnectSelectionListener();
+            if (this._internalCopyTimeoutId) {
+                GLib.Source.remove(this._internalCopyTimeoutId);
+                this._internalCopyTimeoutId = null;
+            }
             if (this._httpSession) {
                 this._httpSession.abort();
                 this._httpSession = null;
@@ -1049,7 +1090,7 @@ export default class TranslateAssistantExtension extends Extension {
 }
 
 class FloatingTranslationWindow {
-    constructor(sourceText, targetText, sourceLang, targetLang, onDestroy) {
+    constructor(sourceText, targetText, sourceLang, targetLang, onDestroy, onCopyClicked) {
         this._onDestroy = onDestroy;
         this.overlay = new St.Widget({
             style_class: 'translate-floating-overlay',
@@ -1169,7 +1210,11 @@ class FloatingTranslationWindow {
         }));
         
         copyBtn.connect('clicked', () => {
-            St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, targetText);
+            if (onCopyClicked) {
+                onCopyClicked(targetText);
+            } else {
+                St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, targetText);
+            }
             this.destroy();
         });
         actions.add_child(copyBtn);

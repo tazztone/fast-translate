@@ -126,6 +126,11 @@
             <summary>Auto copy</summary>
             <description>Copy automatically the content of the output box in the clipboard</description>
         </key>
+         <key name="floating-auto-copy" type="b">
+            <default>false</default>
+            <summary>Floating Auto Copy</summary>
+            <description>Copy automatically the content of the floating translation window to the clipboard</description>
+        </key>
          <key name="auto-translate" type="b">
             <default>false</default>
             <summary>Auto translate</summary>

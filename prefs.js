@@ -158,7 +158,7 @@ export default class TranslateAssistantPreferences extends ExtensionPreferences 
         behaviorPage.add(autoGroup);
 
         const autoPasteRow = new Adw.SwitchRow({
-            title: _('Auto Paste'),
+            title: _('Auto Paste from clipboard'),
             subtitle: _('Paste clipboard content automatically into the input field'),
         });
         settings.bind('auto-paste', autoPasteRow, 'active', Gio.SettingsBindFlags.DEFAULT);
@@ -172,11 +172,18 @@ export default class TranslateAssistantPreferences extends ExtensionPreferences 
         autoGroup.add(autoTranslateRow);
 
         const autoCopyRow = new Adw.SwitchRow({
-            title: _('Auto Copy'),
+            title: _('Auto Copy to clipboard'),
             subtitle: _('Copy translations automatically to the clipboard'),
         });
         settings.bind('auto-copy', autoCopyRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         autoGroup.add(autoCopyRow);
+
+        const floatingAutoCopyRow = new Adw.SwitchRow({
+            title: _('Auto Copy (Floating) to clipboard'),
+            subtitle: _('Copy floating translation results automatically to the clipboard'),
+        });
+        settings.bind('floating-auto-copy', floatingAutoCopyRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        autoGroup.add(floatingAutoCopyRow);
 
 
         // ----------------- STYLE & SYSTEM PAGE -----------------
