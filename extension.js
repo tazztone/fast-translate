@@ -221,6 +221,9 @@ var FastTranslate = GObject.registerClass(
             this._addTooltip(this.settingsMenuItem, _("Open extension preferences"));
 
             this.menu.connect('open-state-changed', (menu, isOpen) => {
+                if (this._destroyed) {
+                    return;
+                }
                 if (this._tooltips) {
                     this._tooltips.forEach(t => t._hide());
                 }
@@ -229,6 +232,9 @@ var FastTranslate = GObject.registerClass(
                 } else {
                     if (this.autoPasteSwitch.state === true) {
                         Clipboard.get_text(CLIPBOARD_TYPE, (_, clipboardText) => {
+                            if (this._destroyed) {
+                                return;
+                            }
                             if (clipboardText) {
                                 this.inputEntry.get_clutter_text().set_text(clipboardText);
                             }
@@ -236,6 +242,9 @@ var FastTranslate = GObject.registerClass(
                     }
                     // Give keyboard focus to the input box so the user can type immediately
                     GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                        if (this._destroyed) {
+                            return GLib.SOURCE_REMOVE;
+                        }
                         global.stage.set_key_focus(this.inputEntry.get_clutter_text());
                         return GLib.SOURCE_REMOVE;
                     });
@@ -269,10 +278,16 @@ var FastTranslate = GObject.registerClass(
         _translateIfAutoPaste() {
             if (this.autoPasteSwitch.state === true) {
                 Clipboard.get_text(CLIPBOARD_TYPE, (_, fromText) => {
+                    if (this._destroyed) {
+                        return;
+                    }
                     if (fromText && fromText !== "") {
                         this.inputEntry.get_clutter_text().set_text(fromText);
                         if (this.autoTranslateSwitch.state === true) {
                             this._translateText(true, fromText, (toText) => {
+                                if (this._destroyed) {
+                                    return;
+                                }
                                 this.outputEntry.get_clutter_text().set_text(toText);
                                 if (this.autoCopySwitch.state === true) {
                                     this._copyToClipboard(toText);
@@ -298,6 +313,9 @@ var FastTranslate = GObject.registerClass(
             let now = GLib.get_monotonic_time();
 
             Clipboard.get_text(CLIPBOARD_TYPE, (_, text) => {
+                if (this._destroyed) {
+                    return;
+                }
                 if (!text || text.trim() === '') return;
 
                 if (this._lastClipboardTime && this._lastClipboardText !== null) {
@@ -393,6 +411,9 @@ var FastTranslate = GObject.registerClass(
                 Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
                 () => {
                     Clipboard.get_text(CLIPBOARD_TYPE, (_, fromText) => {
+                        if (this._destroyed) {
+                            return;
+                        }
                         if (fromText && fromText !== "") {
                             this.inputEntry.get_clutter_text().set_text(fromText);
                             this._triggerTranslation();
@@ -504,6 +525,25 @@ var FastTranslate = GObject.registerClass(
                     GLib.PRIORITY_DEFAULT,
                     this._cancellable,
                     (session, result) => {
+                        let resBytes;
+                        try {
+                            resBytes = session.send_and_read_finish(result);
+                        } catch (e) {
+                            if (this._destroyed) {
+                                return;
+                            }
+                            this._cancellable = null;
+                            if (this.translateBtn) {
+                                this.translateBtn.label = _("Translate");
+                            }
+                            if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED) || e.code === Gio.IOErrorEnum.CANCELLED) {
+                                this._showError(_("Cancelled"));
+                            } else {
+                                this._showError(`Error: ${e.message || e}`);
+                            }
+                            return;
+                        }
+
                         if (this._destroyed) {
                             return;
                         }
@@ -512,10 +552,6 @@ var FastTranslate = GObject.registerClass(
                             this.translateBtn.label = _("Translate");
                         }
                         try {
-                            const resBytes = session.send_and_read_finish(result);
-                            if (this._destroyed) {
-                                return;
-                            }
                             if (message.status_code === 200) {
                                 let decoder = new TextDecoder("utf-8");
                                 let response = decoder.decode(resBytes.get_data());
@@ -541,14 +577,7 @@ var FastTranslate = GObject.registerClass(
                                 this._showError(`Error: ${message.status_code}`);
                             }
                         } catch (e) {
-                            if (this._destroyed) {
-                                return;
-                            }
-                            if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED) || e.code === Gio.IOErrorEnum.CANCELLED) {
-                                this._showError(_("Cancelled"));
-                            } else {
-                                this._showError(`Error: ${e.message || e}`);
-                            }
+                            this._showError(`Error: ${e.message || e}`);
                         }
                     }
                 );
@@ -663,11 +692,17 @@ var FastTranslate = GObject.registerClass(
                 GLib.PRIORITY_DEFAULT,
                 null,
                 (session, result) => {
+                    let resBytes;
+                    try {
+                        resBytes = session.send_and_read_finish(result);
+                    } catch (e) {
+                        if (this._destroyed) return;
+                        Main.notify("Fast Translate", `Error: ${e.message || e}`);
+                        return;
+                    }
+
                     if (this._destroyed) return;
                     try {
-                        const resBytes = session.send_and_read_finish(result);
-                        if (this._destroyed) return;
-
                         if (message.status_code === 200) {
                             let decoder = new TextDecoder("utf-8");
                             let response = decoder.decode(resBytes.get_data());
@@ -689,7 +724,6 @@ var FastTranslate = GObject.registerClass(
                             Main.notify("Fast Translate", `Error: ${message.status_code}`);
                         }
                     } catch (e) {
-                        if (this._destroyed) return;
                         Main.notify("Fast Translate", `Error: ${e.message || e}`);
                     }
                 }
@@ -749,6 +783,9 @@ var FastTranslate = GObject.registerClass(
             this.sourceLabel.connect('clicked', () => {
                 const isVisible = !!this.sourceSelector;
                 GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                    if (this._destroyed) {
+                        return GLib.SOURCE_REMOVE;
+                    }
                     this._toggleLanguageSelector(true, !isVisible);
                     return GLib.SOURCE_REMOVE;
                 });
@@ -761,6 +798,9 @@ var FastTranslate = GObject.registerClass(
             this.swapBtn.connect('clicked', () => {
                 if (this.sourceSelector || this.targetSelector) {
                     GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                        if (this._destroyed) {
+                            return GLib.SOURCE_REMOVE;
+                        }
                         this._toggleLanguageSelector(true, false);
                         return GLib.SOURCE_REMOVE;
                     });
@@ -785,6 +825,9 @@ var FastTranslate = GObject.registerClass(
             this.targetLabel.connect('clicked', () => {
                 const isVisible = !!this.targetSelector;
                 GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                    if (this._destroyed) {
+                        return GLib.SOURCE_REMOVE;
+                    }
                     this._toggleLanguageSelector(false, !isVisible);
                     return GLib.SOURCE_REMOVE;
                 });
@@ -851,6 +894,9 @@ var FastTranslate = GObject.registerClass(
             }));
             this.pasteBtn.connect('clicked', () => {
                 Clipboard.get_text(CLIPBOARD_TYPE, (_, inText) => {
+                    if (this._destroyed) {
+                        return;
+                    }
                     if (inText && inText !== "") {
                         this.inputEntry.get_clutter_text().set_text(inText);
                         if (this.autoTranslateSwitch.state === true) {
@@ -1108,6 +1154,9 @@ var FastTranslate = GObject.registerClass(
                     btn.connect('clicked', () => {
                         this._settings.set_enum(keyName, index);
                         GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                            if (this._destroyed) {
+                                return GLib.SOURCE_REMOVE;
+                            }
                             this._toggleLanguageSelector(isSource, false);
                             this._triggerTranslation();
                             return GLib.SOURCE_REMOVE;

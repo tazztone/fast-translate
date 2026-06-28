@@ -63,17 +63,6 @@ lastcommit-badge: True
 1. Visit the [Fast Translate page on extensions.gnome.org](https://extensions.gnome.org/extension/5124/translate-assistant/). *(Note: The extension will be submitted under Fast Translate)*
 2. Toggle the switch to **On** — the browser integration installs and enables the extension automatically.
 
-### Manual installation
-
-```bash
-git clone https://github.com/tazztone/fast-translate.git
-ln -s "$(pwd)/fast-translate" \
-  ~/.local/share/gnome-shell/extensions/fast-translate@tazztone.github.io
-gnome-extensions enable fast-translate@tazztone.github.io
-```
-
-> **Note**: Do **not** use `gnome-extensions install` from inside the repo — it follows symlinks and will overwrite the source directory. The symlink approach above is the safe dev workflow.
-
 <!-- end installing -->
 
 <!-- start using -->
@@ -107,20 +96,6 @@ Open **GNOME Settings → Extensions → Fast Translate → Settings** to config
 - **Show Notification in Background Mode** (enable/disable completion toasts)
 
 <!-- end using -->
-
-## 🛠 Development
-
-```bash
-# Compile GSettings schemas after editing .gschema.xml
-glib-compile-schemas schemas/
-
-# Reload the extension after changes
-gnome-extensions disable fast-translate@tazztone.github.io
-gnome-extensions enable fast-translate@tazztone.github.io
-
-# Watch logs in real time
-journalctl -f -o cat /usr/bin/gnome-shell
-```
 
 <!-- start contributing -->
 
