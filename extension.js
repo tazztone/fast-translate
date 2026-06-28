@@ -418,6 +418,7 @@ var FastTranslate = GObject.registerClass(
                         if (fromText && fromText !== "") {
                             this.inputEntry.get_clutter_text().set_text(fromText);
                             this._triggerTranslation();
+                            this.menu.open();
                         }
                     });
                 }

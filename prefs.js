@@ -39,25 +39,25 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
 
-        // ----------------- GENERAL PAGE -----------------
-        const generalPage = new Adw.PreferencesPage({
-            title: _('General'),
+        // ----------------- PREFERENCES PAGE -----------------
+        const preferencesPage = new Adw.PreferencesPage({
+            title: _('Preferences'),
             icon_name: 'preferences-other-symbolic',
         });
-        window.add(generalPage);
+        window.add(preferencesPage);
 
-        // Language Group
+        // Group 1: Language Settings
         const langGroup = new Adw.PreferencesGroup({
             title: _('Language Settings'),
         });
-        generalPage.add(langGroup);
+        preferencesPage.add(langGroup);
 
         // Translation Service Combo
         const serviceKey = settings.settings_schema.get_key('translation-service');
         const serviceEnums = serviceKey.get_range().deep_unpack()[1].deep_unpack();
         const serviceRow = new Adw.ComboRow({
             title: _('Translation Service'),
-            subtitle: _('The translation service provider to use'),
+            subtitle: _('Choose between Google Translate (unlimited) and DeepL (requires API key)'),
             model: Gtk.StringList.new(serviceEnums),
         });
         serviceRow.selected = settings.get_enum('translation-service');
@@ -76,7 +76,7 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         const sourceEnums = sourceKey.get_range().deep_unpack()[1].deep_unpack();
         const sourceLangRow = new Adw.ComboRow({
             title: _('Source Language'),
-            subtitle: _('Language of the text to be translated'),
+            subtitle: _('Default source language for new translations'),
             model: Gtk.StringList.new(sourceEnums),
         });
         sourceLangRow.selected = settings.get_enum('source-lang');
@@ -93,7 +93,7 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         const targetEnums = targetKey.get_range().deep_unpack()[1].deep_unpack();
         const targetLangRow = new Adw.ComboRow({
             title: _('Target Language'),
-            subtitle: _('The language into which the text should be translated'),
+            subtitle: _('Default target language for new translations'),
             model: Gtk.StringList.new(targetEnums),
         });
         targetLangRow.selected = settings.get_enum('target-lang');
@@ -110,7 +110,7 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         const formalityEnums = formalityKey.get_range().deep_unpack()[1].deep_unpack();
         const formalityRow = new Adw.ComboRow({
             title: _('Formality'),
-            subtitle: _('Sets whether the translated text should lean towards formal or informal language'),
+            subtitle: _('Lean towards formal or informal language structure (DeepL only)'),
             model: Gtk.StringList.new(formalityEnums),
         });
         formalityRow.selected = settings.get_enum('formality');
@@ -122,15 +122,16 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         });
         langGroup.add(formalityRow);
 
-        // API Configuration Group
+        // Group 2: API Configuration
         const apiGroup = new Adw.PreferencesGroup({
             title: _('DeepL Translation API Configuration'),
         });
-        generalPage.add(apiGroup);
+        preferencesPage.add(apiGroup);
 
         // URL Entry
         const urlRow = new Adw.EntryRow({
             title: _('DeepL API URL'),
+            subtitle: _('The endpoint URL for DeepL Translation API requests'),
         });
         settings.bind('url', urlRow, 'text', Gio.SettingsBindFlags.DEFAULT);
         apiGroup.add(urlRow);
@@ -138,126 +139,111 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         // API Key Entry
         const apikeyRow = new Adw.EntryRow({
             title: _('API Key'),
+            subtitle: _('Your private DeepL API authentication key'),
             use_markup: false,
         });
         settings.bind('apikey', apikeyRow, 'text', Gio.SettingsBindFlags.DEFAULT);
         apiGroup.add(apikeyRow);
 
-        // Formatting options Group
+        // Group 3: Formatting Options
         const formattingGroup = new Adw.PreferencesGroup({
             title: _('Formatting Options'),
         });
-        generalPage.add(formattingGroup);
+        preferencesPage.add(formattingGroup);
 
         const splitRow = new Adw.SwitchRow({
             title: _('Split Sentences'),
-            subtitle: _('Split the input text into sentences before translating'),
+            subtitle: _('Split the input text into sentences to improve translation context and quality'),
         });
         settings.bind('split-sentences', splitRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         formattingGroup.add(splitRow);
 
         const preserveRow = new Adw.SwitchRow({
             title: _('Preserve Formatting'),
-            subtitle: _('Respect original formatting details'),
+            subtitle: _('Retain original formatting details like capitalization, spacing, and newlines'),
         });
         settings.bind('preserve-formatting', preserveRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         formattingGroup.add(preserveRow);
 
-
-        // ----------------- BEHAVIOR PAGE -----------------
-        const behaviorPage = new Adw.PreferencesPage({
-            title: _('Behavior'),
-            icon_name: 'preferences-system-details-symbolic',
-        });
-        window.add(behaviorPage);
-
-        // Auto Options Group
+        // Group 4: Panel Menu Automation
         const autoGroup = new Adw.PreferencesGroup({
-            title: _('Automatic Actions'),
+            title: _('Panel Menu Automation'),
         });
-        behaviorPage.add(autoGroup);
+        preferencesPage.add(autoGroup);
 
         const autoPasteRow = new Adw.SwitchRow({
             title: _('Auto Paste from clipboard'),
-            subtitle: _('Paste clipboard content automatically into the input field'),
+            subtitle: _('Automatically paste clipboard contents into the input box when the panel popup opens'),
         });
         settings.bind('auto-paste', autoPasteRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         autoGroup.add(autoPasteRow);
 
         const autoTranslateRow = new Adw.SwitchRow({
             title: _('Auto Translate'),
-            subtitle: _('Translate automatically when input is populated'),
+            subtitle: _('Translate automatically while typing in the input box'),
         });
         settings.bind('auto-translate', autoTranslateRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         autoGroup.add(autoTranslateRow);
 
         const autoCopyRow = new Adw.SwitchRow({
             title: _('Auto Copy to clipboard'),
-            subtitle: _('Copy translations automatically to the clipboard'),
+            subtitle: _('Automatically copy translation results to the clipboard when translation completes'),
         });
         settings.bind('auto-copy', autoCopyRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         autoGroup.add(autoCopyRow);
 
+        // Group 5: Double-Copy Instant Translation
+        const doubleCopyGroup = new Adw.PreferencesGroup({
+            title: _('Double-Copy Instant Translation'),
+        });
+        preferencesPage.add(doubleCopyGroup);
+
         const floatingAutoCopyRow = new Adw.SwitchRow({
-            title: _('Auto Copy (Floating) to clipboard'),
-            subtitle: _('Copy floating translation results automatically to the clipboard'),
+            title: _('Auto Copy (Floating)'),
+            subtitle: _('Automatically copy the translated text to the clipboard when using the floating window'),
         });
         settings.bind('floating-auto-copy', floatingAutoCopyRow, 'active', Gio.SettingsBindFlags.DEFAULT);
-        autoGroup.add(floatingAutoCopyRow);
+        doubleCopyGroup.add(floatingAutoCopyRow);
 
         const backgroundModeRow = new Adw.SwitchRow({
             title: _('Double-copy Background Mode'),
-            subtitle: _('Translate in background on double-copy instead of showing the floating window'),
+            subtitle: _('Translate silently in the background on double-copy (Ctrl+C Ctrl+C) without showing the floating UI'),
         });
         settings.bind('floating-background-mode', backgroundModeRow, 'active', Gio.SettingsBindFlags.DEFAULT);
-        autoGroup.add(backgroundModeRow);
+        doubleCopyGroup.add(backgroundModeRow);
 
         const backgroundToastRow = new Adw.SwitchRow({
             title: _('Show Notification in Background Mode'),
-            subtitle: _('Display a notification when background translation finishes'),
+            subtitle: _('Show a desktop notification with the translation result when running in background mode'),
         });
         settings.bind('floating-background-toast', backgroundToastRow, 'active', Gio.SettingsBindFlags.DEFAULT);
-        autoGroup.add(backgroundToastRow);
+        doubleCopyGroup.add(backgroundToastRow);
 
         backgroundModeRow.bind_property('active', backgroundToastRow, 'sensitive', GObject.BindingFlags.DEFAULT | GObject.BindingFlags.SYNC_CREATE);
 
-
-        // ----------------- STYLE & SYSTEM PAGE -----------------
-        const stylePage = new Adw.PreferencesPage({
-            title: _('System & Style'),
-            icon_name: 'style',
+        // Group 6: System & Shortcuts Integration
+        const systemGroup = new Adw.PreferencesGroup({
+            title: _('System & Shortcuts Integration'),
         });
-        window.add(stylePage);
-
-        // Style Settings Group
-        const styleGroup = new Adw.PreferencesGroup({
-            title: _('Style & Integration'),
-        });
-        stylePage.add(styleGroup);
+        preferencesPage.add(systemGroup);
 
         const notificationsRow = new Adw.SwitchRow({
             title: _('Show Notifications'),
-            subtitle: _('Show system notifications upon translation completions'),
+            subtitle: _('Show a system notification when a panel translation completes'),
         });
         settings.bind('notifications', notificationsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
-        styleGroup.add(notificationsRow);
+        systemGroup.add(notificationsRow);
 
         const darkthemeRow = new Adw.SwitchRow({
             title: _('Dark Theme Indicator'),
-            subtitle: _('Use dark theme panel icons (disable for light theme icons)'),
+            subtitle: _('Use dark theme friendly status icons in the top panel'),
         });
         settings.bind('darktheme', darkthemeRow, 'active', Gio.SettingsBindFlags.DEFAULT);
-        styleGroup.add(darkthemeRow);
-
-        // Shortcut Settings Group
-        const shortcutGroup = new Adw.PreferencesGroup({
-            title: _('Keyboard Shortcuts'),
-        });
-        stylePage.add(shortcutGroup);
+        systemGroup.add(darkthemeRow);
 
         const shortcutRow = new Adw.ActionRow({
             title: _('Clipboard Translation Shortcut'),
-            subtitle: _('Click and press key combination to set shortcut. Escape/Backspace to clear'),
+            subtitle: _('Key combination to instantly translate clipboard contents (opens panel menu with result)'),
         });
         const shortcutLabel = new Gtk.Label({
             valign: Gtk.Align.CENTER,
@@ -300,7 +286,7 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
             }
             return false;
         });
-        shortcutGroup.add(shortcutRow);
+        systemGroup.add(shortcutRow);
 
 
         // ----------------- ABOUT PAGE -----------------
@@ -323,7 +309,7 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
 
         const authorRow = new Adw.ActionRow({
             title: _('Author'),
-            subtitle: 'Lorenzo Carbonell (atareao)',
+            subtitle: 'tazztone (Original by Lorenzo Carbonell / atareao)',
         });
         aboutGroup.add(authorRow);
 
@@ -377,9 +363,9 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
             formalityRow.visible = isDeepL;
 
             if (isDeepL) {
-                autoTranslateRow.subtitle = _('Translate automatically when input is populated');
+                autoTranslateRow.subtitle = _('Translate automatically while typing in the input box');
             } else {
-                autoTranslateRow.subtitle = _('Translate automatically when input is populated. Warning: Your IP address may get banned for API abuse.');
+                autoTranslateRow.subtitle = _('Translate automatically while typing in the input box. Warning: Your IP address may get banned for API abuse.');
             }
         }
         updateServiceVisibility();
