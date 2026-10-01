@@ -111,8 +111,8 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         });
         preferencesPage.add(apiGroup);
 
-        // API Key Entry
-        const apikeyRow = new Adw.EntryRow({
+        // API Key Entry (masked: this is a credential)
+        const apikeyRow = new Adw.PasswordEntryRow({
             title: _('API Key'),
             use_markup: false,
         });

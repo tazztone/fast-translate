@@ -164,8 +164,7 @@ class Tooltip {
 // and are explicitly disconnected in destroy() via _disconnectWidgetSignals().
 // One-shot GLib.idle_add sources go through this._trackIdle() and pending ones
 // are cancelled in destroy() via _clearIdleSources(). Actors destroyed with the
-// menu also auto-drop handlers, but explicit disconnects keep enable()/disable()
-// balanced.
+// menu also auto-drop handlers, but explicit disconnects leave nothing behind.
 var FastTranslate = GObject.registerClass(
     class FastTranslate extends PanelMenu.Button {
         _init(extension) {
@@ -177,7 +176,6 @@ var FastTranslate = GObject.registerClass(
             this._httpSession = new Soup.Session({ timeout: 10 });
             this._cancellable = null;
             this._tooltips = [];
-            this.FloatingTranslationWindow = FloatingTranslationWindow;
 
             this._settingsChangedId = null;
             this._clipboardTimeoutId = null;
@@ -191,7 +189,7 @@ var FastTranslate = GObject.registerClass(
             // Debounced typing translation (see _menuTranslationBlock).
             this._inputTextChangedId = null;
             this._typingDebounceId = null;
-            // Lazily-created refs, initialized for reviewer clarity.
+            // Lazily-created refs.
             this.selection = null;
             this._lastClipboardTime = null;
             this._lastClipboardText = null;
@@ -673,6 +671,12 @@ var FastTranslate = GObject.registerClass(
             this._shortcutBound = false;
         }
 
+        // The DeepL endpoint URL is user-editable: refuse to send the API key
+        // over plaintext. Called by both translation paths before any request.
+        _isDeepLUrlSecure() {
+            return /^https:\/\//i.test(this._url || "");
+        }
+
         _translateText(fromOrTo, fromText, callback) {
             if (fromText && fromText !== "") {
                 if (fromText.length > MAX_INPUT_CHARS) {
@@ -733,8 +737,7 @@ var FastTranslate = GObject.registerClass(
                         preserve_formatting: !!this._preserve_formatting,
                     };
 
-                    // Never send the API key over plaintext: the URL is user-editable.
-                    if (!/^https:\/\//i.test(this._url || "")) {
+                    if (!this._isDeepLUrlSecure()) {
                         this._showError(_("DeepL URL must use https://"));
                         this._cancellable = null;
                         if (this.translateBtn) {
@@ -755,12 +758,6 @@ var FastTranslate = GObject.registerClass(
                         } else {
                             bodyObj.formality = this._formality;
                         }
-                    }
-
-                // Never send the API key over plaintext: the URL is user-editable.
-                    if (!/^https:\/\//i.test(this._url || "")) {
-                        Main.notify("Fast Translate", _("DeepL URL must use https://"));
-                        return;
                     }
 
                     const body = JSON.stringify(bodyObj);
@@ -848,7 +845,7 @@ var FastTranslate = GObject.registerClass(
                                 }
                                 
                                 if (this._notifications) {
-                                    const shortText = toText.length > 150 ? `${toText.slice(0, 150)}…` : toText;
+                                    const shortText = toText.length > MAX_NOTIFY_CHARS ? `${toText.slice(0, MAX_NOTIFY_CHARS)}…` : toText;
                                     Main.notify(_("Translated"), shortText);
                                 }
                                 callback(toText);
@@ -962,6 +959,12 @@ var FastTranslate = GObject.registerClass(
                 const body = JSON.stringify(bodyObj);
                 const bytes = new GLib.Bytes(body);
 
+                // The DeepL endpoint URL is user-editable: never send the key over plaintext.
+                if (!this._isDeepLUrlSecure()) {
+                    Main.notify("Fast Translate", _("DeepL URL must use https://"));
+                    return;
+                }
+
                 try {
                     message = Soup.Message.new('POST', this._url);
                     if (!message) throw new Error(_("Invalid URL"));
@@ -1028,7 +1031,9 @@ var FastTranslate = GObject.registerClass(
         }
 
         _get_country_code(description) {
-            return parseCountryCode(description);
+            // Never return null: callers call .toLowerCase() on the result.
+            // A corrupt dconf value degrades to an API error, not a crash.
+            return parseCountryCode(description) || 'AUTO';
         }
 
         _copyToClipboard(inText) {
