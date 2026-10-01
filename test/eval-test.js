@@ -825,6 +825,87 @@ global.testRunnerPromise = (async () => {
             return { success: false, error: "Kill-switch test failed: " + (e.message || String(e)) };
         }
 
+        // Test 8f2: custom detection window — narrow window triggers inside
+        // and ignores outside; helper clamps and falls back sanely.
+        try {
+            const Meta = imports.gi.Meta;
+            const GLib = imports.gi.GLib;
+            const St = imports.gi.St;
+            const Clipboard = St.Clipboard.get_default();
+
+            if (typeof indicator._getDoubleCopyWindowUs !== 'function') {
+                return { success: false, error: "Custom window test failed: _getDoubleCopyWindowUs missing" };
+            }
+            const origDelay = indicator._settings.get_int('double-copy-delay');
+            const origMonotonic = GLib.get_monotonic_time;
+            let mockTime = 20000000;
+            GLib.get_monotonic_time = function() {
+                return mockTime;
+            };
+            const origGetText = Clipboard.get_text;
+            let mockClipboardText = "Custom window probe";
+            Clipboard.get_text = function(type, callback) {
+                callback(Clipboard, mockClipboardText);
+            };
+            const origIndependent = indicator._translateTextIndependent;
+            let triggeredText = null;
+            indicator._translateTextIndependent = function(fromText, callback) {
+                triggeredText = fromText;
+            };
+            const origGesture = indicator._settings.get_boolean('double-copy-enabled');
+            const origAutoPaste = indicator.autoPasteSwitch.state;
+            const origAutoTranslate = indicator.autoTranslateSwitch.state;
+            indicator.autoTranslateSwitch.setToggleState(false);
+            indicator.autoPasteSwitch.setToggleState(false);
+            try {
+                indicator._settings.set_boolean('double-copy-enabled', true);
+                // Sanity: default helper returns 2000ms in microseconds.
+                indicator._settings.set_int('double-copy-delay', 2000);
+                if (indicator._getDoubleCopyWindowUs() !== 2000000) {
+                    return { success: false, error: "Window helper returned " + indicator._getDoubleCopyWindowUs() + " instead of 2000000" };
+                }
+                // Narrow window: +400ms triggers, +800ms does not.
+                indicator._settings.set_int('double-copy-delay', 500);
+                if (indicator._getDoubleCopyWindowUs() !== 500000) {
+                    return { success: false, error: "Window helper did not respect custom 500ms delay" };
+                }
+                indicator._lastClipboardTime = null;
+                indicator._lastClipboardText = null;
+                indicator._isInternalCopy = false;
+                triggeredText = null;
+                mockTime = 20000000;
+                indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null);
+                mockTime = 20400000; // +400ms: inside 500ms window
+                indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null);
+                if (triggeredText !== "Custom window probe") {
+                    return { success: false, error: "Custom 500ms window failed: +400ms copy did not trigger" };
+                }
+                indicator._lastClipboardTime = null;
+                indicator._lastClipboardText = null;
+                indicator._isInternalCopy = false;
+                triggeredText = null;
+                mockTime = 21000000;
+                indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null);
+                mockTime = 21800000; // +800ms: outside 500ms window
+                indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null);
+                if (triggeredText !== null) {
+                    return { success: false, error: "Custom 500ms window failed: +800ms copy triggered anyway" };
+                }
+            } finally {
+                GLib.get_monotonic_time = origMonotonic;
+                Clipboard.get_text = origGetText;
+                indicator._translateTextIndependent = origIndependent;
+                indicator._settings.set_int('double-copy-delay', origDelay);
+                indicator._settings.set_boolean('double-copy-enabled', origGesture);
+                indicator.autoPasteSwitch.setToggleState(origAutoPaste);
+                indicator.autoTranslateSwitch.setToggleState(origAutoTranslate);
+                indicator._lastClipboardTime = null;
+                indicator._lastClipboardText = null;
+            }
+        } catch (e) {
+            return { success: false, error: "Custom window test failed: " + (e.message || String(e)) };
+        }
+
         // Test 8g: typing debounce — rapid typing collapses to a single translation;
         // with auto-translate OFF no debounce is even armed (synchronous check,
         // no wall-clock wait so the Eval stays well within the poll window).

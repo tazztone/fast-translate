@@ -206,6 +206,45 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         settings.bind('double-copy-enabled', doubleCopyEnabledRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         doubleCopyGroup.add(doubleCopyEnabledRow);
 
+        // Detection window (ms). Manual sync: SpinRow.value is double,
+        // GSettings key is int, so bind() with its type mismatch can't be used.
+        const delayAdjustment = new Gtk.Adjustment({
+            lower: 300,
+            upper: 5000,
+            step_increment: 100,
+            page_increment: 500,
+            value: 2000,
+        });
+        const delayRow = new Adw.SpinRow({
+            title: _('Detection Window'),
+            subtitle: _('Max time between the two copies in milliseconds. Larger values trigger more easily but can cause unwanted popups.'),
+            adjustment: delayAdjustment,
+        });
+        const syncDelayFromSettings = () => {
+            try {
+                const v = settings.get_int('double-copy-delay');
+                if (Number.isFinite(v) && Math.round(delayRow.value) !== v)
+                    delayRow.value = v;
+            } catch (e) {
+                // Old schema without the key: leave the default visible.
+            }
+        };
+        syncDelayFromSettings();
+        let _delayUpdating = false;
+        delayRow.connect('notify::value', () => {
+            if (_delayUpdating) return;
+            try {
+                settings.set_int('double-copy-delay', Math.round(delayRow.value));
+            } catch (e) {
+                // Ignore writes while the new schema isn't installed yet.
+            }
+        });
+        settings.connect('changed::double-copy-delay', () => {
+            _delayUpdating = true;
+            try { syncDelayFromSettings(); } finally { _delayUpdating = false; }
+        });
+        doubleCopyGroup.add(delayRow);
+
         const floatingAutoCopyRow = new Adw.SwitchRow({
             title: _('Auto Copy Popup Result'),
             subtitle: _('Copy popup result to clipboard'),
@@ -231,6 +270,7 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         // never suggests options that currently do nothing.
         const syncDoubleCopySensitive = () => {
             const enabled = doubleCopyEnabledRow.active;
+            delayRow.sensitive = enabled;
             floatingAutoCopyRow.sensitive = enabled;
             backgroundModeRow.sensitive = enabled;
             backgroundToastRow.sensitive = enabled && backgroundModeRow.active;

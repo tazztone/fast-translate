@@ -32,6 +32,10 @@ try {
                     },
                     get_enum: () => 0,
                     set_enum: () => {},
+                    get_int: () => 2000,
+                    set_int: () => {},
+                    get_boolean: () => false,
+                    set_boolean: () => {},
                     connect: () => {},
                     bind: () => {},
                     get_strv: () => ['<Super>t']

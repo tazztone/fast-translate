@@ -54,6 +54,12 @@ function getClipboard() {
 const SHELL_KEYBINDINGS_SCHEMA = "org.gnome.shell.keybindings";
 const SHORTCUT_SETTING_KEY = "keybinding-translate-clipboard";
 const TIMEOUT_MS = 500;
+// Double-copy gesture timing. MIN filters event-loop duplicate owner-changed
+// signals; the max window is user-configurable via double-copy-delay (ms).
+const DOUBLE_COPY_MIN_US = 50 * 1000;
+const DOUBLE_COPY_DELAY_FALLBACK_MS = 2000;
+const DOUBLE_COPY_DELAY_MIN_MS = 300;
+const DOUBLE_COPY_DELAY_MAX_MS = 5000;
 
 class Tooltip {
     constructor(actor, text) {
@@ -366,6 +372,21 @@ var FastTranslate = GObject.registerClass(
             }
         }
 
+        _getDoubleCopyWindowUs() {
+            // Live-read so dconf/prefs changes apply without reload.
+            // Falls back to the historic 2000ms when the key is missing
+            // (e.g. old compiled schema still installed).
+            let ms = DOUBLE_COPY_DELAY_FALLBACK_MS;
+            try {
+                ms = this._settings.get_int('double-copy-delay');
+            } catch (e) {
+                ms = DOUBLE_COPY_DELAY_FALLBACK_MS;
+            }
+            if (!Number.isFinite(ms)) ms = DOUBLE_COPY_DELAY_FALLBACK_MS;
+            ms = Math.max(DOUBLE_COPY_DELAY_MIN_MS, Math.min(DOUBLE_COPY_DELAY_MAX_MS, ms));
+            return ms * 1000;
+        }
+
         _onSelectionChange(_a, selectionType, _b) {
             if (selectionType !== Meta.SelectionType.SELECTION_CLIPBOARD) return;
             if (this._isInternalCopy) {
@@ -397,11 +418,11 @@ var FastTranslate = GObject.registerClass(
                 const now = GLib.get_monotonic_time();
                 if (doubleCopyEnabled && this._lastClipboardTime && this._lastClipboardText !== null) {
                     let diff = now - this._lastClipboardTime;
-                    // Trigger only if same content AND within 50ms–2s window.
+                    // Trigger only if same content AND within the detection window.
                     // Identical content means the user pressed Ctrl+C on the same selection.
                     // Clipboard managers (e.g. GSConnect) always change the content slightly,
                     // so they won't accidentally trigger the floating window.
-                    if (diff >= 50000 && diff < 2000000 && text === this._lastClipboardText) {
+                    if (diff >= DOUBLE_COPY_MIN_US && diff < this._getDoubleCopyWindowUs() && text === this._lastClipboardText) {
                         this._lastClipboardText = null; // consume — triple-C won't re-trigger
                         this._triggerFloatingTranslation(text);
                         return;

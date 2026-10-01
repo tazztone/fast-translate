@@ -155,6 +155,12 @@
             <summary>Enable Double-Copy Gesture</summary>
             <description>Trigger instant translation when the same text is copied twice in quick succession (Ctrl+C Ctrl+C). Turn off if translation windows appear unwantedly.</description>
          </key>
+         <key name="double-copy-delay" type="i">
+            <default>2000</default>
+            <range min="300" max="5000"/>
+            <summary>Double-copy detection window</summary>
+            <description>Maximum milliseconds between two identical copies to trigger instant translation. Smaller is stricter; larger triggers more easily but may cause unwanted popups.</description>
+         </key>
          <key name="auto-translate" type="b">
             <default>false</default>
             <summary>Auto translate</summary>
