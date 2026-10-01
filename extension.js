@@ -176,6 +176,10 @@ var FastTranslate = GObject.registerClass(
             this._httpSession = new Soup.Session({ timeout: 10 });
             this._cancellable = null;
             this._tooltips = [];
+            // Test seam: eval-test.js instantiates the floating window via
+            // indicator.FloatingTranslationWindow (module scope is unreachable
+            // from Shell Eval). Unused by production code paths.
+            this.FloatingTranslationWindow = FloatingTranslationWindow;
 
             this._settingsChangedId = null;
             this._clipboardTimeoutId = null;

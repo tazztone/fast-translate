@@ -43,6 +43,9 @@ lastcommit-badge: True
 - **Configurable shortcut** — the clipboard-translate keybinding can be customised in the extension preferences.
 - **Multiple Backends** — choose between Google Translate (works instantly out-of-the-box, no key required) and DeepL (Free & Pro tiers).
 
+> [!NOTE]
+> Google Translate needs no setup but uses a free endpoint that Google rate-limits per network (HTTP 429 — common on shared office/VPN connections). If a translation fails with a throttle error, wait a minute and retry, or switch to DeepL with a free API key for your own quota.
+
 <!-- end description -->
 
 <!-- start prerequisites -->

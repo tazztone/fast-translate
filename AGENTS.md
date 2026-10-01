@@ -14,3 +14,17 @@
 ## Testing & Sessions
 - Do not remove the post-enable settle wait in `test/integration.sh` (timing tests fail on unsettled shells).
 - If `enable` succeeds but state stays INACTIVE with no logs and stale version info, log out/in (host shell predates the changes).
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues (`tazztone/translate-assistant`). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five canonical labels (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context (one `GLOSSARY.md` + `docs/adr/` at repo root). See `docs/agents/domain.md`.
