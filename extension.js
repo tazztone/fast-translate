@@ -727,7 +727,8 @@ var FastTranslate = GObject.registerClass(
                                 }
                                 
                                 if (this._notifications) {
-                                    Main.notify("Fast Translate", _("Translated"));
+                                    const shortText = toText.length > 150 ? `${toText.slice(0, 150)}…` : toText;
+                                    Main.notify(_("Translated"), shortText);
                                 }
                                 callback(toText);
                             } else if (this._translation_service === 1 && (message.status_code === 403 || message.status_code === 429)) {
