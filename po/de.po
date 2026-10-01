@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: fast-translate@tazztone.github.io\n"
 "Report-Msgid-Bugs-To: https://github.com/tazztone/translate-assistant/"
 "issues\n"
-"POT-Creation-Date: 2026-10-01 17:04+0200\n"
+"POT-Creation-Date: 2026-10-01 17:35+0200\n"
 "PO-Revision-Date: 2022-03-28 10:22+0200\n"
 "Last-Translator: Philipp Kiemle <philipp.kiemle@gmail.com>\n"
 "Language-Team: German\n"
@@ -19,118 +19,118 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: Poedit 3.0\n"
 
-#: extension.js:227
+#: extension.js:233
 msgid "Auto Paste from clipboard"
 msgstr ""
 
-#: extension.js:236 prefs.js:182
+#: extension.js:242 prefs.js:182
 msgid "Auto Translate"
 msgstr ""
 
-#: extension.js:244
+#: extension.js:250
 msgid "Auto Copy to clipboard"
 msgstr ""
 
-#: extension.js:255
+#: extension.js:261
 msgid "Settings"
 msgstr "Einstellungen"
 
-#: extension.js:283
+#: extension.js:289
 msgid "Automatically paste clipboard text when menu opens"
 msgstr ""
 
-#: extension.js:284
+#: extension.js:290
 msgid "Translate input text automatically while typing"
 msgstr ""
 
-#: extension.js:285
+#: extension.js:291
 msgid "Copy translation results to clipboard automatically"
 msgstr ""
 
-#: extension.js:286
+#: extension.js:292
 msgid "Open extension preferences"
 msgstr ""
 
-#: extension.js:665 extension.js:1283
+#: extension.js:686 extension.js:1304
 msgid "Cancel"
 msgstr "Abbrechen"
 
-#: extension.js:685 extension.js:727 extension.js:880 extension.js:916
+#: extension.js:706 extension.js:748 extension.js:901 extension.js:937
 msgid "Invalid URL"
 msgstr ""
 
-#: extension.js:688 extension.js:730 extension.js:882 extension.js:918
+#: extension.js:709 extension.js:751 extension.js:903 extension.js:939
 msgid "Error"
 msgstr ""
 
-#: extension.js:691 extension.js:733 extension.js:747 extension.js:770
-#: extension.js:789 extension.js:1193
+#: extension.js:712 extension.js:754 extension.js:768 extension.js:791
+#: extension.js:810 extension.js:1214
 msgid "Translate"
 msgstr ""
 
-#: extension.js:773
+#: extension.js:794
 #, fuzzy
 #| msgid "Cancel"
 msgid "Cancelled"
 msgstr "Abbrechen"
 
-#: extension.js:807 extension.js:840
+#: extension.js:828 extension.js:861
 msgid "Translated"
 msgstr ""
 
-#: extension.js:811 extension.js:958
+#: extension.js:832 extension.js:979
 msgid "Rate-limited or blocked by Google Translate. Please try again later."
 msgstr ""
 
-#: extension.js:813 extension.js:960
+#: extension.js:834 extension.js:981
 msgid "Auth failed (403): check API key and URL in settings"
 msgstr ""
 
-#: extension.js:1083
+#: extension.js:1104
 msgid "Type or paste text..."
 msgstr ""
 
-#: extension.js:1224
+#: extension.js:1245
 msgid "Translation will appear here..."
 msgstr ""
 
-#: extension.js:1278
+#: extension.js:1299
 msgid "Swap languages"
 msgstr ""
 
-#: extension.js:1279
+#: extension.js:1300
 msgid "Paste from clipboard"
 msgstr ""
 
-#: extension.js:1280
+#: extension.js:1301
 msgid "Clear text"
 msgstr ""
 
-#: extension.js:1281
+#: extension.js:1302
 msgid "Copy translation to clipboard"
 msgstr ""
 
-#: extension.js:1283
+#: extension.js:1304
 msgid "Cancel translation"
 msgstr ""
 
-#: extension.js:1283
+#: extension.js:1304
 msgid "Translate text"
 msgstr ""
 
-#: extension.js:1286
+#: extension.js:1307
 msgid "Source language: "
 msgstr ""
 
-#: extension.js:1286
+#: extension.js:1307
 msgid "Auto"
 msgstr ""
 
-#: extension.js:1289
+#: extension.js:1310
 msgid "Target language: "
 msgstr ""
 
-#: extension.js:1673
+#: extension.js:1694
 msgid "Auto Copy"
 msgstr ""
 
@@ -233,7 +233,7 @@ msgstr ""
 msgid "Fill input with clipboard when popup opens"
 msgstr ""
 
-#: prefs.js:183 prefs.js:423
+#: prefs.js:183 prefs.js:463
 msgid "Translate while typing"
 msgstr ""
 
@@ -265,47 +265,59 @@ msgstr ""
 "Übersetzen, wenn derselbe Text zweimal schnell hintereinander kopiert wird. "
 "Deaktivieren, falls Popups unerwünscht erscheinen."
 
-#: prefs.js:210
+#: prefs.js:219
+msgid "Detection Window"
+msgstr "Erkennungsfenster"
+
+#: prefs.js:220
+msgid ""
+"Max time between the two copies in milliseconds. Larger values trigger more "
+"easily but can cause unwanted popups."
+msgstr ""
+"Maximale Zeit zwischen den beiden Kopiervorgängen in Millisekunden. Größere "
+"Werte lösen leichter aus, können aber unerwünschte Popups verursachen."
+
+#: prefs.js:249
 msgid "Auto Copy Popup Result"
 msgstr ""
 
-#: prefs.js:211
+#: prefs.js:250
 msgid "Copy popup result to clipboard"
 msgstr ""
 
-#: prefs.js:217
+#: prefs.js:256
 msgid "Run in Background"
 msgstr ""
 
-#: prefs.js:218
+#: prefs.js:257
 msgid "Translate without showing the popup. The result is always copied."
 msgstr ""
 
-#: prefs.js:224
+#: prefs.js:263
 msgid "Background Notification"
 msgstr ""
 
-#: prefs.js:225
+#: prefs.js:264
 msgid "Show the result in a notification when running in background"
 msgstr ""
 
-#: prefs.js:244
+#: prefs.js:284
 msgid "System"
 msgstr ""
 
-#: prefs.js:249
+#: prefs.js:289
 msgid "Panel Notification"
 msgstr ""
 
-#: prefs.js:250
+#: prefs.js:290
 msgid "Also show a notification when a panel translation finishes"
 msgstr ""
 
-#: prefs.js:256
+#: prefs.js:296
 msgid "Clipboard Shortcut"
 msgstr ""
 
-#: prefs.js:257 prefs.js:288
+#: prefs.js:297 prefs.js:328
 msgid ""
 "Translate clipboard instantly. Click this row, then press keys to set, Esc "
 "to clear."
@@ -313,47 +325,47 @@ msgstr ""
 "Zwischenablage sofort übersetzen. Diese Zeile anklicken, dann Tasten zum "
 "Festlegen drücken, Esc zum Löschen."
 
-#: prefs.js:273
+#: prefs.js:313
 msgid "None"
 msgstr ""
 
-#: prefs.js:289
+#: prefs.js:329
 msgid "Press keys now, Esc to clear…"
 msgstr "Jetzt Tasten drücken, Esc zum Löschen…"
 
-#: prefs.js:353
+#: prefs.js:393
 msgid "About"
 msgstr "Info"
 
-#: prefs.js:359
+#: prefs.js:399
 msgid "Extension Details"
 msgstr ""
 
-#: prefs.js:364
+#: prefs.js:404
 msgid "Version"
 msgstr "Version"
 
-#: prefs.js:370
+#: prefs.js:410
 msgid "Author"
 msgstr ""
 
-#: prefs.js:376
+#: prefs.js:416
 msgid "Description"
 msgstr ""
 
-#: prefs.js:383
+#: prefs.js:423
 msgid "Links and Support"
 msgstr ""
 
-#: prefs.js:388
+#: prefs.js:428
 msgid "Project Homepage"
 msgstr ""
 
-#: prefs.js:403
+#: prefs.js:443
 msgid "Buy me a coffee"
 msgstr "Spendieren Sie mir einen Kaffee"
 
-#: prefs.js:425
+#: prefs.js:465
 msgid "Translate while typing. May be rate-limited."
 msgstr ""
 
@@ -506,11 +518,25 @@ msgstr ""
 "kopiert wird (Strg+C Strg+C). Deaktivieren, falls Übersetzungsfenster "
 "unerwünscht erscheinen."
 
-#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:160
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:161
+msgid "Double-copy detection window"
+msgstr "Doppelkopie-Erkennungsfenster"
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:162
+msgid ""
+"Maximum milliseconds between two identical copies to trigger instant "
+"translation. Smaller is stricter; larger triggers more easily but may cause "
+"unwanted popups."
+msgstr ""
+"Maximale Millisekunden zwischen zwei identischen Kopien für die sofortige "
+"Übersetzung. Kleiner ist strenger; größer löst leichter aus, kann aber "
+"unerwünschte Popups verursachen."
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:166
 msgid "Auto translate"
 msgstr ""
 
-#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:161
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:167
 msgid ""
 "Translate automatically the content of the input box and the set the result "
 "in the output box"
