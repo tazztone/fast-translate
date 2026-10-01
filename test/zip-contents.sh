@@ -5,9 +5,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+shopt -s nullglob
 ZIPS=( *.shell-extension.zip )
+shopt -u nullglob
 if [ "${#ZIPS[@]}" -ne 1 ]; then
     echo "❌ Expected exactly one *.shell-extension.zip, found ${#ZIPS[@]}."
+    echo "   Run: bash scripts/pack.sh"
     exit 1
 fi
 ZIP="${ZIPS[0]}"
@@ -34,5 +37,19 @@ fi
 # 3. Zip basename must match the metadata uuid
 UUID=$(python3 -c "import json; print(json.load(open('metadata.json'))['uuid'])")
 [ "${ZIP%.shell-extension.zip}" = "$UUID" ] || fail "zip name $ZIP does not match metadata uuid $UUID"
+
+# 4. Freshness: every shipped source must be older than the zip.
+# Without this the gate passes on a stale zip after source edits.
+STALE=""
+for f in extension.js prefs.js translation-helper.js metadata.json stylesheet.css \
+    schemas/org.gnome.shell.extensions.fast-translate.gschema.xml \
+    icons/fast-translate-active-dark.svg icons/fast-translate-active-light.svg \
+    icons/fast-translate-paused-dark.svg icons/fast-translate-paused-light.svg \
+    icons/fast-translate-icon.svg icons/fast-translate-icon.png; do
+    if [ "$f" -nt "$ZIP" ]; then
+        STALE="$STALE $f"
+    fi
+done
+[ -z "$STALE" ] || fail "stale zip: repack needed (newer than zip:$STALE). Run: bash scripts/pack.sh"
 
 echo "✅ Zip contents check passed ($ZIP)."

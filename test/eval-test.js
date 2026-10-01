@@ -12,22 +12,27 @@ global.testRunnerPromise = (async () => {
         }
 
         // Test 0: Settings hygiene + ship-state defaults audit.
-        // Snapshot every key this suite may touch, reset to schema defaults
-        // (reviewers check defaults first; resets also make reruns idempotent).
-        // Snapshot is restored before the success return and in the catch
-        // below; individual tests additionally use try/finally.
-        const TOUCHED_KEYS = ['translation-service', 'source-lang', 'target-lang',
-            'url', 'apikey', 'floating-auto-copy', 'floating-background-mode',
-            'floating-background-toast', 'double-copy-enabled', 'double-copy-delay',
-            'auto-paste', 'auto-translate', 'auto-copy',
-            'keybinding-translate-clipboard', 'notifications'];
+        // Snapshot every schema key (dynamic enumeration so new keys are
+        // covered), reset to schema defaults (reviewers check defaults
+        // first; resets also make reruns idempotent). Snapshot is restored
+        // before the success return and in the catch below; individual
+        // tests additionally use try/finally.
+        let TOUCHED_KEYS = null;
+        try { TOUCHED_KEYS = indicator._settings.settings_schema.list_keys(); } catch (e) { TOUCHED_KEYS = null; }
+        if (!TOUCHED_KEYS || TOUCHED_KEYS.length === 0) {
+            TOUCHED_KEYS = ['translation-service', 'source-lang', 'target-lang',
+                'url', 'apikey', 'floating-auto-copy', 'floating-background-mode',
+                'floating-background-toast', 'double-copy-enabled', 'double-copy-delay',
+                'auto-paste', 'auto-translate', 'auto-copy',
+                'keybinding-translate-clipboard', 'notifications'];
+        }
         const _settingsSnapshot = {};
         for (const _k of TOUCHED_KEYS) {
             try { _settingsSnapshot[_k] = indicator._settings.get_value(_k); } catch (e) { _settingsSnapshot[_k] = null; }
         }
         const _restoreSettingsSnapshot = () => {
             for (const _k of TOUCHED_KEYS) {
-                try { if (_settingsSnapshot[_k]) indicator._settings.set_value(_k, _settingsSnapshot[_k]); } catch (e) {}
+                try { if (_settingsSnapshot[_k] != null) indicator._settings.set_value(_k, _settingsSnapshot[_k]); } catch (e) {}
             }
         };
         for (const _k of TOUCHED_KEYS) {

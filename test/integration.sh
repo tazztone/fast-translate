@@ -40,7 +40,7 @@ dbus-run-session bash -c '
     # and leaking every test settings-write into the live desktop. With a
     # private user DB the nested shell starts extension-free and fully
     # isolated; the suite enables only the extension under test.
-    export DCONF_PROFILE_DIR="$(mktemp -d /tmp/ft-dconf-profile-XXXXXX)"
+    export DCONF_PROFILE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ft-dconf-profile-XXXXXX")"
     printf 'user-db:testdb\n' > "$DCONF_PROFILE_DIR/profile"
     export DCONF_PROFILE="$DCONF_PROFILE_DIR/profile"
 
@@ -109,7 +109,13 @@ dbus-run-session bash -c '
     # ACTIVE (catches re-enable crashes and ERROR states reviewers probe for).
     echo "🔁 Testing disable/enable round-trip..."
     gnome-extensions disable fast-translate@tazztone.github.io
-    sleep 2
+    for i in $(seq 1 20); do
+        INFO_D=$(gnome-extensions info fast-translate@tazztone.github.io 2>/dev/null || echo "Command failed")
+        if echo "$INFO_D" | grep -qiE "State: *(INACTIVE|DISABLED)"; then
+            break
+        fi
+        sleep 0.5
+    done
     gnome-extensions enable fast-translate@tazztone.github.io
     INFO2=""
     for i in $(seq 1 40); do
@@ -157,9 +163,9 @@ dbus-run-session bash -c '
     CLEAN_RESULT=${RESULT//\\/}
     if echo "$CLEAN_RESULT" | grep -q "\"success\": *true" && ! echo "$CLEAN_RESULT" | grep -q "\"success\": *false"; then
         echo "✅ Programmatic integration tests passed successfully!"
-        if grep -i "fast-translate" "$LOG_FILE" | grep -qiE "JS ERROR|uncaught|traceback"; then
+        if grep -i "fast-translate" "$LOG_FILE" | grep -qiE "JS ERROR|uncaught|traceback|Gjs-CRITICAL|St-CRITICAL"; then
             echo "❌ Extension logged errors during tests:"
-            grep -i "fast-translate" "$LOG_FILE" | grep -iE "JS ERROR|uncaught|traceback" | head -n 10
+            grep -i "fast-translate" "$LOG_FILE" | grep -iE "JS ERROR|uncaught|traceback|Gjs-CRITICAL|St-CRITICAL" | head -n 10
             exit 1
         fi
         rm -f "$LOG_FILE" || true

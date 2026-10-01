@@ -15,7 +15,7 @@
 - Do not remove the post-enable settle wait in `test/integration.sh` (timing tests fail on unsettled shells).
 - If `enable` succeeds but state stays INACTIVE with no logs and stale version info, log out/in (host shell predates the changes).
 - `test/eval-test.js` convention: Test 0 snapshots touched keys + resets to defaults; restore in `finally` (suite Eval is passed inside shell double quotes — no backticks, `$`, or backslashes in test code; use argv-style `GLib.spawn_sync`, never `spawn_command_line_sync`). Pump the mainloop once after settings writes before asserting.
-- `npm test` is the fast gate (node unit + prefs + zip); `npm run test:integration` is the nested-shell suite.
+- `npm test` is the fast gate (node unit + prefs + zip); `npm run test:integration` is the nested-shell suite. If the zip gate reports `stale zip`, run `bash scripts/pack.sh` (never pack inside the repo dir by hand) and re-run.
 
 ## Agent skills
 
