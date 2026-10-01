@@ -171,6 +171,9 @@ var FastTranslate = GObject.registerClass(
             this._isInternalCopy = false;
             this._internalCopyTimeoutId = null;
             this._shortcutBound = false;
+            this._interfaceSettings = null;
+            this._colorSchemeChangedId = null;
+            this._gtkThemeChangedId = null;
             // EGO-L-003: debounced typing translation (see _menuTranslationBlock).
             this._inputTextChangedId = null;
             this._typingDebounceId = null;
@@ -243,6 +246,19 @@ var FastTranslate = GObject.registerClass(
                 this._extension.openPreferences();
             });
             this.menu.addMenuItem(this.settingsMenuItem);
+
+            /* System theme tracking for auto dark icons */
+            try {
+                this._interfaceSettings = new Gio.Settings({ schema_id: 'org.gnome.desktop.interface' });
+                this._colorSchemeChangedId = this._interfaceSettings.connect('changed::color-scheme', () => {
+                    this._updateDarkTheme();
+                });
+                this._gtkThemeChangedId = this._interfaceSettings.connect('changed::gtk-theme', () => {
+                    this._updateDarkTheme();
+                });
+            } catch (e) {
+                this._interfaceSettings = null;
+            }
 
             /* Init */
             this._set_icon_indicator();
@@ -421,6 +437,50 @@ var FastTranslate = GObject.registerClass(
             this._settingsChangedId = null;
         }
 
+        // Auto dark icons: follow the system color-scheme instead of a manual
+        // toggle (the top bar follows the system theme). The 'darktheme'
+        // schema key is left unused for backward compatibility.
+        _resolveDarkTheme() {
+            if (this._interfaceSettings) {
+                try {
+                    const scheme = this._interfaceSettings.get_string('color-scheme');
+                    if (scheme === 'prefer-dark') return true;
+                    if (scheme === 'prefer-light' || scheme === 'default') return false;
+                } catch (e) {
+                    // Fall through to gtk-theme check.
+                }
+                try {
+                    const gtkTheme = this._interfaceSettings.get_string('gtk-theme');
+                    if (gtkTheme && gtkTheme.toLowerCase().includes('dark')) return true;
+                } catch (e) {
+                    // Schema key missing; assume light.
+                }
+            }
+            return false;
+        }
+
+        _updateDarkTheme() {
+            if (this._destroyed) {
+                return;
+            }
+            this._darktheme = this._resolveDarkTheme();
+            this._set_icon_indicator();
+        }
+
+        _disconnectInterfaceSettings() {
+            if (this._interfaceSettings) {
+                if (this._colorSchemeChangedId) {
+                    this._interfaceSettings.disconnect(this._colorSchemeChangedId);
+                    this._colorSchemeChangedId = null;
+                }
+                if (this._gtkThemeChangedId) {
+                    this._interfaceSettings.disconnect(this._gtkThemeChangedId);
+                    this._gtkThemeChangedId = null;
+                }
+                this._interfaceSettings = null;
+            }
+        }
+
         // EGO-L-004: register a one-shot idle source so a pending callback can
         // be cancelled in destroy(). The wrapper unregisters the id on dispatch;
         // callbacks must return GLib.SOURCE_REMOVE (one-shot).
@@ -527,7 +587,7 @@ var FastTranslate = GObject.registerClass(
             this._apikey = this._getValue('apikey');
             this._keybinding_translate_clipboard = this._getValue(SHORTCUT_SETTING_KEY);
             this._notifications = this._getValue('notifications');
-            this._darktheme = this._getValue('darktheme');
+            this._darktheme = this._resolveDarkTheme();
 
             this.autoPasteSwitch.setToggleState(this._getValue('auto-paste'));
             this.autoTranslateSwitch.setToggleState(this._getValue('auto-translate'));
@@ -1398,6 +1458,7 @@ var FastTranslate = GObject.registerClass(
                 this._tooltips = null;
             }
             this._disconnectSettings();
+            this._disconnectInterfaceSettings();
             this._unbindShortcut();
             this._clearClipboardTimeout();
             this._disconnectSelectionListener();

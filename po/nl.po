@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: fast-translate@tazztone.github.io\n"
 "Report-Msgid-Bugs-To: https://github.com/tazztone/translate-assistant/"
 "issues\n"
-"POT-Creation-Date: 2026-10-01 16:33+0200\n"
+"POT-Creation-Date: 2026-10-01 16:35+0200\n"
 "PO-Revision-Date: 2022-02-25 17:55+0100\n"
 "Last-Translator: Heimen Stoffels <vistausss@fastmail.com>\n"
 "Language-Team: \n"
@@ -19,118 +19,118 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: Poedit 3.0.1\n"
 
-#: extension.js:213
+#: extension.js:216
 msgid "Auto Paste from clipboard"
 msgstr ""
 
-#: extension.js:222 prefs.js:182
+#: extension.js:225 prefs.js:182
 msgid "Auto Translate"
 msgstr ""
 
-#: extension.js:230
+#: extension.js:233
 msgid "Auto Copy to clipboard"
 msgstr ""
 
-#: extension.js:241
+#: extension.js:244
 msgid "Settings"
 msgstr "Voorkeuren"
 
-#: extension.js:256
+#: extension.js:272
 msgid "Automatically paste clipboard text when menu opens"
 msgstr ""
 
-#: extension.js:257
+#: extension.js:273
 msgid "Translate input text automatically while typing"
 msgstr ""
 
-#: extension.js:258
+#: extension.js:274
 msgid "Copy translation results to clipboard automatically"
 msgstr ""
 
-#: extension.js:259
+#: extension.js:275
 msgid "Open extension preferences"
 msgstr ""
 
-#: extension.js:589 extension.js:1206
+#: extension.js:649 extension.js:1267
 msgid "Cancel"
 msgstr "Annuleren"
 
-#: extension.js:609 extension.js:651 extension.js:803 extension.js:839
+#: extension.js:669 extension.js:711 extension.js:864 extension.js:900
 msgid "Invalid URL"
 msgstr ""
 
-#: extension.js:612 extension.js:654 extension.js:805 extension.js:841
+#: extension.js:672 extension.js:714 extension.js:866 extension.js:902
 msgid "Error"
 msgstr ""
 
-#: extension.js:615 extension.js:657 extension.js:671 extension.js:694
-#: extension.js:713 extension.js:1116
+#: extension.js:675 extension.js:717 extension.js:731 extension.js:754
+#: extension.js:773 extension.js:1177
 msgid "Translate"
 msgstr ""
 
-#: extension.js:697
+#: extension.js:757
 #, fuzzy
 #| msgid "Cancel"
 msgid "Cancelled"
 msgstr "Annuleren"
 
-#: extension.js:730 extension.js:763
+#: extension.js:791 extension.js:824
 msgid "Translated"
 msgstr ""
 
-#: extension.js:734 extension.js:881
+#: extension.js:795 extension.js:942
 msgid "Rate-limited or blocked by Google Translate. Please try again later."
 msgstr ""
 
-#: extension.js:736 extension.js:883
+#: extension.js:797 extension.js:944
 msgid "Auth failed (403): check API key and URL in settings"
 msgstr ""
 
-#: extension.js:1006
+#: extension.js:1067
 msgid "Type or paste text..."
 msgstr ""
 
-#: extension.js:1147
+#: extension.js:1208
 msgid "Translation will appear here..."
 msgstr ""
 
-#: extension.js:1201
+#: extension.js:1262
 msgid "Swap languages"
 msgstr ""
 
-#: extension.js:1202
+#: extension.js:1263
 msgid "Paste from clipboard"
 msgstr ""
 
-#: extension.js:1203
+#: extension.js:1264
 msgid "Clear text"
 msgstr ""
 
-#: extension.js:1204
+#: extension.js:1265
 msgid "Copy translation to clipboard"
 msgstr ""
 
-#: extension.js:1206
+#: extension.js:1267
 msgid "Cancel translation"
 msgstr ""
 
-#: extension.js:1206
+#: extension.js:1267
 msgid "Translate text"
 msgstr ""
 
-#: extension.js:1209
+#: extension.js:1270
 msgid "Source language: "
 msgstr ""
 
-#: extension.js:1209
+#: extension.js:1270
 msgid "Auto"
 msgstr ""
 
-#: extension.js:1212
+#: extension.js:1273
 msgid "Target language: "
 msgstr ""
 
-#: extension.js:1584
+#: extension.js:1646
 msgid "Auto Copy"
 msgstr ""
 
@@ -233,7 +233,7 @@ msgstr ""
 msgid "Fill input with clipboard when popup opens"
 msgstr ""
 
-#: prefs.js:183 prefs.js:382
+#: prefs.js:183 prefs.js:375
 msgid "Translate while typing"
 msgstr ""
 
@@ -300,60 +300,52 @@ msgid "Also show a notification when a panel translation finishes"
 msgstr ""
 
 #: prefs.js:256
-msgid "Dark Panel Icons"
-msgstr ""
-
-#: prefs.js:257
-msgid "Use light icons suited for a dark top bar"
-msgstr ""
-
-#: prefs.js:263
 msgid "Clipboard Shortcut"
 msgstr ""
 
-#: prefs.js:264
+#: prefs.js:257
 msgid ""
 "Translate clipboard instantly. Focus this row, press keys to set, Esc to "
 "clear."
 msgstr ""
 
-#: prefs.js:278
+#: prefs.js:271
 msgid "None"
 msgstr ""
 
-#: prefs.js:312
+#: prefs.js:305
 msgid "About"
 msgstr "Over"
 
-#: prefs.js:318
+#: prefs.js:311
 msgid "Extension Details"
 msgstr ""
 
-#: prefs.js:323
+#: prefs.js:316
 msgid "Version"
 msgstr "Versie"
 
-#: prefs.js:329
+#: prefs.js:322
 msgid "Author"
 msgstr ""
 
-#: prefs.js:335
+#: prefs.js:328
 msgid "Description"
 msgstr ""
 
-#: prefs.js:342
+#: prefs.js:335
 msgid "Links and Support"
 msgstr ""
 
-#: prefs.js:347
+#: prefs.js:340
 msgid "Project Homepage"
 msgstr ""
 
-#: prefs.js:362
+#: prefs.js:355
 msgid "Buy me a coffee"
 msgstr "Doneren"
 
-#: prefs.js:384
+#: prefs.js:377
 msgid "Translate while typing. May be rate-limited."
 msgstr ""
 

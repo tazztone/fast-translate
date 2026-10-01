@@ -252,13 +252,6 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         settings.bind('notifications', notificationsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         systemGroup.add(notificationsRow);
 
-        const darkthemeRow = new Adw.SwitchRow({
-            title: _('Dark Panel Icons'),
-            subtitle: _('Use light icons suited for a dark top bar'),
-        });
-        settings.bind('darktheme', darkthemeRow, 'active', Gio.SettingsBindFlags.DEFAULT);
-        systemGroup.add(darkthemeRow);
-
         const shortcutRow = new Adw.ActionRow({
             title: _('Clipboard Shortcut'),
             subtitle: _('Translate clipboard instantly. Focus this row, press keys to set, Esc to clear.'),
