@@ -170,6 +170,7 @@ var FastTranslate = GObject.registerClass(
             this._selectionOwnerChangedId = null;
             this._isInternalCopy = false;
             this._internalCopyTimeoutId = null;
+            this._shortcutBound = false;
             // EGO-L-003: handler IDs for every widget signal, disconnected in destroy().
             this._menuOpenStateChangedId = null;
             this._autoPasteToggledId = null;
@@ -549,10 +550,18 @@ var FastTranslate = GObject.registerClass(
                     });
                 }
             );
+            this._shortcutBound = true;
         }
 
         _unbindShortcut() {
+            // Guard: removeKeybinding() logs "Trying to remove non-existent
+            // keybinding" if nothing is registered (e.g. first _loadPreferences
+            // call in _init, before any _bindShortcut ran).
+            if (!this._shortcutBound) {
+                return;
+            }
             Main.wm.removeKeybinding(SHORTCUT_SETTING_KEY);
+            this._shortcutBound = false;
         }
 
         _translateText(fromOrTo, fromText, callback) {
