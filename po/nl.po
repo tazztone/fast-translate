@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: fast-translate@tazztone.github.io\n"
 "Report-Msgid-Bugs-To: https://github.com/tazztone/translate-assistant/"
 "issues\n"
-"POT-Creation-Date: 2026-10-01 16:35+0200\n"
+"POT-Creation-Date: 2026-10-01 17:04+0200\n"
 "PO-Revision-Date: 2022-02-25 17:55+0100\n"
 "Last-Translator: Heimen Stoffels <vistausss@fastmail.com>\n"
 "Language-Team: \n"
@@ -19,118 +19,118 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: Poedit 3.0.1\n"
 
-#: extension.js:216
+#: extension.js:227
 msgid "Auto Paste from clipboard"
 msgstr ""
 
-#: extension.js:225 prefs.js:182
+#: extension.js:236 prefs.js:182
 msgid "Auto Translate"
 msgstr ""
 
-#: extension.js:233
+#: extension.js:244
 msgid "Auto Copy to clipboard"
 msgstr ""
 
-#: extension.js:244
+#: extension.js:255
 msgid "Settings"
 msgstr "Voorkeuren"
 
-#: extension.js:272
+#: extension.js:283
 msgid "Automatically paste clipboard text when menu opens"
 msgstr ""
 
-#: extension.js:273
+#: extension.js:284
 msgid "Translate input text automatically while typing"
 msgstr ""
 
-#: extension.js:274
+#: extension.js:285
 msgid "Copy translation results to clipboard automatically"
 msgstr ""
 
-#: extension.js:275
+#: extension.js:286
 msgid "Open extension preferences"
 msgstr ""
 
-#: extension.js:649 extension.js:1267
+#: extension.js:665 extension.js:1283
 msgid "Cancel"
 msgstr "Annuleren"
 
-#: extension.js:669 extension.js:711 extension.js:864 extension.js:900
+#: extension.js:685 extension.js:727 extension.js:880 extension.js:916
 msgid "Invalid URL"
 msgstr ""
 
-#: extension.js:672 extension.js:714 extension.js:866 extension.js:902
+#: extension.js:688 extension.js:730 extension.js:882 extension.js:918
 msgid "Error"
 msgstr ""
 
-#: extension.js:675 extension.js:717 extension.js:731 extension.js:754
-#: extension.js:773 extension.js:1177
+#: extension.js:691 extension.js:733 extension.js:747 extension.js:770
+#: extension.js:789 extension.js:1193
 msgid "Translate"
 msgstr ""
 
-#: extension.js:757
+#: extension.js:773
 #, fuzzy
 #| msgid "Cancel"
 msgid "Cancelled"
 msgstr "Annuleren"
 
-#: extension.js:791 extension.js:824
+#: extension.js:807 extension.js:840
 msgid "Translated"
 msgstr ""
 
-#: extension.js:795 extension.js:942
+#: extension.js:811 extension.js:958
 msgid "Rate-limited or blocked by Google Translate. Please try again later."
 msgstr ""
 
-#: extension.js:797 extension.js:944
+#: extension.js:813 extension.js:960
 msgid "Auth failed (403): check API key and URL in settings"
 msgstr ""
 
-#: extension.js:1067
+#: extension.js:1083
 msgid "Type or paste text..."
 msgstr ""
 
-#: extension.js:1208
+#: extension.js:1224
 msgid "Translation will appear here..."
 msgstr ""
 
-#: extension.js:1262
+#: extension.js:1278
 msgid "Swap languages"
 msgstr ""
 
-#: extension.js:1263
+#: extension.js:1279
 msgid "Paste from clipboard"
 msgstr ""
 
-#: extension.js:1264
+#: extension.js:1280
 msgid "Clear text"
 msgstr ""
 
-#: extension.js:1265
+#: extension.js:1281
 msgid "Copy translation to clipboard"
 msgstr ""
 
-#: extension.js:1267
+#: extension.js:1283
 msgid "Cancel translation"
 msgstr ""
 
-#: extension.js:1267
+#: extension.js:1283
 msgid "Translate text"
 msgstr ""
 
-#: extension.js:1270
+#: extension.js:1286
 msgid "Source language: "
 msgstr ""
 
-#: extension.js:1270
+#: extension.js:1286
 msgid "Auto"
 msgstr ""
 
-#: extension.js:1273
+#: extension.js:1289
 msgid "Target language: "
 msgstr ""
 
-#: extension.js:1646
+#: extension.js:1673
 msgid "Auto Copy"
 msgstr ""
 
@@ -233,7 +233,7 @@ msgstr ""
 msgid "Fill input with clipboard when popup opens"
 msgstr ""
 
-#: prefs.js:183 prefs.js:375
+#: prefs.js:183 prefs.js:423
 msgid "Translate while typing"
 msgstr ""
 
@@ -247,21 +247,23 @@ msgstr ""
 
 #: prefs.js:197
 msgid "Double Ctrl+C"
-msgstr ""
+msgstr "Dubbele Ctrl+C"
 
 #: prefs.js:198
 msgid "Copy the same text twice to translate it instantly."
-msgstr ""
+msgstr "Kopieer dezelfde tekst tweemaal om deze direct te vertalen."
 
 #: prefs.js:203
 msgid "Enable Gesture"
-msgstr ""
+msgstr "Gebaar inschakelen"
 
 #: prefs.js:204
 msgid ""
 "Translate when the same text is copied twice quickly. Turn off if popups "
 "appear unwantedly."
 msgstr ""
+"Vertalen wanneer dezelfde tekst tweemaal snel achter elkaar wordt "
+"gekopieerd. Uitschakelen als pop-ups ongewenst verschijnen."
 
 #: prefs.js:210
 msgid "Auto Copy Popup Result"
@@ -303,49 +305,55 @@ msgstr ""
 msgid "Clipboard Shortcut"
 msgstr ""
 
-#: prefs.js:257
+#: prefs.js:257 prefs.js:288
 msgid ""
-"Translate clipboard instantly. Focus this row, press keys to set, Esc to "
-"clear."
+"Translate clipboard instantly. Click this row, then press keys to set, Esc "
+"to clear."
 msgstr ""
+"Klembord direct vertalen. Klik op deze rij en druk op toetsen om de sneltoets "
+"in te stellen, Esc om te wissen."
 
-#: prefs.js:271
+#: prefs.js:273
 msgid "None"
 msgstr ""
 
-#: prefs.js:305
+#: prefs.js:289
+msgid "Press keys now, Esc to clear…"
+msgstr "Druk nu op toetsen, Esc om te wissen…"
+
+#: prefs.js:353
 msgid "About"
 msgstr "Over"
 
-#: prefs.js:311
+#: prefs.js:359
 msgid "Extension Details"
 msgstr ""
 
-#: prefs.js:316
+#: prefs.js:364
 msgid "Version"
 msgstr "Versie"
 
-#: prefs.js:322
+#: prefs.js:370
 msgid "Author"
 msgstr ""
 
-#: prefs.js:328
+#: prefs.js:376
 msgid "Description"
 msgstr ""
 
-#: prefs.js:335
+#: prefs.js:383
 msgid "Links and Support"
 msgstr ""
 
-#: prefs.js:340
+#: prefs.js:388
 msgid "Project Homepage"
 msgstr ""
 
-#: prefs.js:355
+#: prefs.js:403
 msgid "Buy me a coffee"
 msgstr "Doneren"
 
-#: prefs.js:377
+#: prefs.js:425
 msgid "Translate while typing. May be rate-limited."
 msgstr ""
 
@@ -486,7 +494,7 @@ msgstr ""
 
 #: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:155
 msgid "Enable Double-Copy Gesture"
-msgstr ""
+msgstr "Dubbel-kopiëren-gebaar inschakelen"
 
 #: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:156
 msgid ""
@@ -494,6 +502,9 @@ msgid ""
 "succession (Ctrl+C Ctrl+C). Turn off if translation windows appear "
 "unwantedly."
 msgstr ""
+"Directe vertaling starten wanneer dezelfde tekst tweemaal snel achter elkaar "
+"wordt gekopieerd (Ctrl+C Ctrl+C). Uitschakelen als vertaalvensters ongewenst "
+"verschijnen."
 
 #: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:160
 msgid "Auto translate"

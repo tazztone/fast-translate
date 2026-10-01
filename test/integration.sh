@@ -58,8 +58,8 @@ dbus-run-session bash -c '
     echo "🧪 Triggering programmatic JS tests via DBus Eval..."
     gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell --method org.gnome.Shell.Eval "$JS_CODE" > /dev/null
 
-    echo "⏳ Waiting for asynchronous assertions to complete..."
-    sleep 2
+    echo "⏳ Waiting for asynchronous assertions to complete (debounce test needs ~1s)..."
+    sleep 4
 
     echo "🔍 Fetching test suite result..."
     RESULT=$(gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell --method org.gnome.Shell.Eval "$QUERY_CODE")

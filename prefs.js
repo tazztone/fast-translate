@@ -254,7 +254,9 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
 
         const shortcutRow = new Adw.ActionRow({
             title: _('Clipboard Shortcut'),
-            subtitle: _('Translate clipboard instantly. Focus this row, press keys to set, Esc to clear.'),
+            subtitle: _('Translate clipboard instantly. Click this row, then press keys to set, Esc to clear.'),
+            activatable: true,
+            focusable: true,
         });
         const shortcutLabel = new Gtk.Label({
             valign: Gtk.Align.CENTER,
@@ -272,13 +274,59 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
             }
         };
         updateShortcutLabel();
+        settings.connect('changed::keybinding-translate-clipboard', updateShortcutLabel);
+
+        // Click/Enter grabs keyboard focus so the key controller below receives events.
+        // Without activatable + focusable the row can never be focused (the reported bug).
+        shortcutRow.connect('activated', () => {
+            shortcutRow.grab_focus();
+        });
+
+        // Hint while capturing: swap subtitle on focus enter/leave.
+        const shortcutFocus = new Gtk.EventControllerFocus();
+        shortcutRow.add_controller(shortcutFocus);
+        const shortcutHintDefault = _('Translate clipboard instantly. Click this row, then press keys to set, Esc to clear.');
+        const shortcutHintCapturing = _('Press keys now, Esc to clear…');
+        shortcutFocus.connect('enter', () => {
+            shortcutRow.subtitle = shortcutHintCapturing;
+        });
+        shortcutFocus.connect('leave', () => {
+            shortcutRow.subtitle = shortcutHintDefault;
+        });
 
         const controller = new Gtk.EventControllerKey();
         shortcutRow.add_controller(controller);
         controller.connect('key-pressed', (controller, keyval, keycode, state) => {
+            // Ignore pure-modifier presses; wait for the real combo.
+            switch (keyval) {
+                case Gdk.KEY_Control_L:
+                case Gdk.KEY_Control_R:
+                case Gdk.KEY_Shift_L:
+                case Gdk.KEY_Shift_R:
+                case Gdk.KEY_Alt_L:
+                case Gdk.KEY_Alt_R:
+                case Gdk.KEY_Meta_L:
+                case Gdk.KEY_Meta_R:
+                case Gdk.KEY_Super_L:
+                case Gdk.KEY_Super_R:
+                case Gdk.KEY_Hyper_L:
+                case Gdk.KEY_Hyper_R:
+                case Gdk.KEY_ISO_Level3_Shift:
+                case Gdk.KEY_Caps_Lock:
+                case Gdk.KEY_Num_Lock:
+                    return true;
+            }
+
             const mask = state & Gtk.accelerator_get_default_mod_mask();
 
-            if (keyval === Gdk.KEY_Escape || keyval === Gdk.KEY_BackSpace) {
+            if (keyval === Gdk.KEY_Escape) {
+                settings.set_strv('keybinding-translate-clipboard', []);
+                updateShortcutLabel();
+                return true;
+            }
+
+            // Bare BackSpace clears; Ctrl/Alt+BackSpace is a valid shortcut.
+            if (keyval === Gdk.KEY_BackSpace && mask === 0) {
                 settings.set_strv('keybinding-translate-clipboard', []);
                 updateShortcutLabel();
                 return true;

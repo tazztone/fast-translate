@@ -712,6 +712,166 @@ global.testRunnerPromise = (async () => {
             indicator._translateTextIndependent = originalTranslateTextIndependent;
         }
 
+        // Test 8e: P0 gate — gesture OFF + auto-paste OFF → no clipboard read at all.
+        // Regression test: system-wide copies must never be inspected when disarmed.
+        try {
+            const Meta = imports.gi.Meta;
+            const St = imports.gi.St;
+            const Clipboard = St.Clipboard.get_default();
+
+            const origGesture = indicator._settings.get_boolean('double-copy-enabled');
+            indicator._settings.set_boolean('double-copy-enabled', false);
+            const origAutoPaste = indicator.autoPasteSwitch.state;
+            indicator.autoPasteSwitch.setToggleState(false);
+            const origAutoTranslate = indicator.autoTranslateSwitch.state;
+            indicator.autoTranslateSwitch.setToggleState(false);
+            indicator._lastClipboardTime = null;
+            indicator._lastClipboardText = null;
+            indicator._isInternalCopy = false;
+
+            let readCount = 0;
+            const origGetText = Clipboard.get_text;
+            Clipboard.get_text = function(type, callback) {
+                readCount++;
+                callback(Clipboard, "P0 probe text");
+            };
+            try {
+                indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null);
+                indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null);
+                if (readCount !== 0) {
+                    return { success: false, error: "P0 gate violated: clipboard read " + readCount + "x with gesture OFF + auto-paste OFF" };
+                }
+            } finally {
+                Clipboard.get_text = origGetText;
+                indicator._settings.set_boolean('double-copy-enabled', origGesture);
+                indicator.autoPasteSwitch.setToggleState(origAutoPaste);
+                indicator.autoTranslateSwitch.setToggleState(origAutoTranslate);
+            }
+        } catch (e) {
+            return { success: false, error: "P0 gate test failed: " + (e.message || String(e)) };
+        }
+
+        // Test 8f: kill-switch — gesture OFF + auto-paste ON reads but never triggers;
+        // flipping the gesture back ON re-arms the double-copy trigger.
+        try {
+            const Meta = imports.gi.Meta;
+            const GLib = imports.gi.GLib;
+            const St = imports.gi.St;
+            const Clipboard = St.Clipboard.get_default();
+
+            const origMonotonic = GLib.get_monotonic_time;
+            let mockTime = 10000000;
+            GLib.get_monotonic_time = function() {
+                return mockTime;
+            };
+
+            const origGetText = Clipboard.get_text;
+            let mockClipboardText = "Kill switch probe";
+            Clipboard.get_text = function(type, callback) {
+                callback(Clipboard, mockClipboardText);
+            };
+
+            const origIndependent = indicator._translateTextIndependent;
+            let triggeredText = null;
+            indicator._translateTextIndependent = function(fromText, callback) {
+                triggeredText = fromText;
+            };
+
+            const origGesture = indicator._settings.get_boolean('double-copy-enabled');
+            const origAutoPaste = indicator.autoPasteSwitch.state;
+            const origAutoTranslate = indicator.autoTranslateSwitch.state;
+            indicator.autoTranslateSwitch.setToggleState(false);
+            indicator.autoPasteSwitch.setToggleState(true);
+            try {
+                // Disarmed: two identical copies must NOT trigger...
+                indicator._settings.set_boolean('double-copy-enabled', false);
+                indicator._lastClipboardTime = null;
+                indicator._lastClipboardText = null;
+                indicator._isInternalCopy = false;
+                mockTime = 10000000;
+                indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null);
+                mockTime = 10200000;
+                indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null);
+                if (triggeredText !== null) {
+                    return { success: false, error: "Kill-switch violated: double-copy triggered with gesture OFF" };
+                }
+                if (indicator._lastClipboardText !== null) {
+                    return { success: false, error: "Kill-switch violated: clipboard state armed while gesture OFF" };
+                }
+
+                // Re-armed: same sequence must trigger again.
+                indicator._settings.set_boolean('double-copy-enabled', true);
+                indicator._lastClipboardTime = null;
+                indicator._lastClipboardText = null;
+                triggeredText = null;
+                mockTime = 11000000;
+                indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null);
+                mockTime = 11200000;
+                indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null);
+                if (triggeredText !== "Kill switch probe") {
+                    return { success: false, error: "Kill-switch re-arm failed: double-copy did not trigger with gesture ON" };
+                }
+            } finally {
+                GLib.get_monotonic_time = origMonotonic;
+                Clipboard.get_text = origGetText;
+                indicator._translateTextIndependent = origIndependent;
+                indicator._settings.set_boolean('double-copy-enabled', origGesture);
+                indicator.autoPasteSwitch.setToggleState(origAutoPaste);
+                indicator.autoTranslateSwitch.setToggleState(origAutoTranslate);
+                indicator._lastClipboardTime = null;
+                indicator._lastClipboardText = null;
+            }
+        } catch (e) {
+            return { success: false, error: "Kill-switch test failed: " + (e.message || String(e)) };
+        }
+
+        // Test 8g: typing debounce — rapid typing collapses to a single translation;
+        // with auto-translate OFF no debounce is even armed (synchronous check,
+        // no wall-clock wait so the Eval stays well within the poll window).
+        try {
+            const GLib = imports.gi.GLib;
+            const origTrigger = indicator._triggerTranslation;
+            let triggerCount = 0;
+            indicator._triggerTranslation = function() {
+                triggerCount++;
+            };
+            const origAutoTranslate = indicator.autoTranslateSwitch.state;
+            if (indicator._typingDebounceId) {
+                GLib.Source.remove(indicator._typingDebounceId);
+                indicator._typingDebounceId = null;
+            }
+            try {
+                indicator.autoTranslateSwitch.setToggleState(true);
+                indicator.inputEntry.get_clutter_text().set_text("d");
+                indicator.inputEntry.get_clutter_text().set_text("de");
+                indicator.inputEntry.get_clutter_text().set_text("deb");
+                if (!indicator._typingDebounceId) {
+                    return { success: false, error: "Debounce not armed: no pending translation after typing" };
+                }
+                await new Promise(resolve => GLib.timeout_add(GLib.PRIORITY_DEFAULT, 800, () => {
+                    resolve();
+                    return GLib.SOURCE_REMOVE;
+                }));
+                if (triggerCount !== 1) {
+                    return { success: false, error: "Debounce failed: expected 1 translation after rapid typing, got " + triggerCount };
+                }
+                indicator.autoTranslateSwitch.setToggleState(false);
+                indicator.inputEntry.get_clutter_text().set_text("debo");
+                if (indicator._typingDebounceId !== null || triggerCount !== 1) {
+                    return { success: false, error: "Auto-translate OFF failed: typing armed a translation while disarmed" };
+                }
+            } finally {
+                indicator._triggerTranslation = origTrigger;
+                indicator.autoTranslateSwitch.setToggleState(origAutoTranslate);
+                if (indicator._typingDebounceId) {
+                    GLib.Source.remove(indicator._typingDebounceId);
+                    indicator._typingDebounceId = null;
+                }
+            }
+        } catch (e) {
+            return { success: false, error: "Debounce test failed: " + (e.message || String(e)) };
+        }
+
         // Test 9: FloatingTranslationWindow layout, centering, and Escape key handler
         try {
             let FloatingTranslationWindow = indicator.FloatingTranslationWindow;
