@@ -28,6 +28,9 @@ else
     echo "⚙️ Setting up virtualenv to install shexli analyzer..."
     python3 -m venv venv
     venv/bin/pip install -U shexli --quiet
+    # PIN: tree-sitter>=0.26 segfaults (exit 139) analyzing extension.js —
+    # upstream heap corruption, unrelated to zip contents. Last good: 0.25.2.
+    venv/bin/pip install 'tree-sitter==0.25.2' --quiet
     echo "🔍 Running shexli static analyzer..."
     venv/bin/shexli *.zip
 fi
