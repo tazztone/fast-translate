@@ -171,6 +171,9 @@ var FastTranslate = GObject.registerClass(
             this._isInternalCopy = false;
             this._internalCopyTimeoutId = null;
             this._shortcutBound = false;
+            // EGO-L-003: debounced typing translation (see _menuTranslationBlock).
+            this._inputTextChangedId = null;
+            this._typingDebounceId = null;
             // EGO-L-003: handler IDs for every widget signal, disconnected in destroy().
             this._menuOpenStateChangedId = null;
             this._autoPasteToggledId = null;
@@ -487,6 +490,14 @@ var FastTranslate = GObject.registerClass(
                 this.inputEntry.disconnect(this._inputBtnPressId);
                 this._inputBtnPressId = null;
             }
+            if (this.inputEntry && this._inputTextChangedId) {
+                this.inputEntry.get_clutter_text().disconnect(this._inputTextChangedId);
+                this._inputTextChangedId = null;
+            }
+            if (this._typingDebounceId) {
+                GLib.Source.remove(this._typingDebounceId);
+                this._typingDebounceId = null;
+            }
             if (this.pasteBtn && this._pasteBtnClickedId) {
                 this.pasteBtn.disconnect(this._pasteBtnClickedId);
                 this._pasteBtnClickedId = null;
@@ -569,8 +580,14 @@ var FastTranslate = GObject.registerClass(
                 if (this.errorLabel) {
                     this.errorLabel.text = "";
                 }
-                
-                this._cancellable = new Gio.Cancellable();
+
+                // Cancel any in-flight request so rapid triggers don't race;
+                // its callback is ignored via the stale-cancellable guard below.
+                if (this._cancellable) {
+                    this._cancellable.cancel();
+                }
+                const cancellable = new Gio.Cancellable();
+                this._cancellable = cancellable;
                 if (this.translateBtn) {
                     this.translateBtn.label = _("Cancel");
                 }
@@ -650,7 +667,9 @@ var FastTranslate = GObject.registerClass(
                 }
                 
                 if (this._destroyed || !this._httpSession) {
-                    this._cancellable = null;
+                    if (this._cancellable === cancellable) {
+                        this._cancellable = null;
+                    }
                     if (this.translateBtn) {
                         this.translateBtn.label = _("Translate");
                     }
@@ -660,13 +679,17 @@ var FastTranslate = GObject.registerClass(
                 this._httpSession.send_and_read_async(
                     message,
                     GLib.PRIORITY_DEFAULT,
-                    this._cancellable,
+                    cancellable,
                     (session, result) => {
                         let resBytes;
                         try {
                             resBytes = session.send_and_read_finish(result);
                         } catch (e) {
                             if (this._destroyed) {
+                                return;
+                            }
+                            // Stale request superseded by a newer one: ignore.
+                            if (this._cancellable !== cancellable) {
                                 return;
                             }
                             this._cancellable = null;
@@ -682,6 +705,10 @@ var FastTranslate = GObject.registerClass(
                         }
 
                         if (this._destroyed) {
+                            return;
+                        }
+                        // Stale request superseded by a newer one: ignore.
+                        if (this._cancellable !== cancellable) {
                             return;
                         }
                         this._cancellable = null;
@@ -890,14 +917,9 @@ var FastTranslate = GObject.registerClass(
                 return GLib.SOURCE_REMOVE;
             });
 
-            if (this.autoPasteSwitch.state === true) {
-                this.autoPasteSwitch.setToggleState(false);
-                // User-gated write: explicit copy or "Auto Copy" is ON.
-                getClipboard().set_text(CLIPBOARD_TYPE, inText);
-                this.autoPasteSwitch.setToggleState(true);
-            } else {
-                getClipboard().set_text(CLIPBOARD_TYPE, inText);
-            }
+            // The _isInternalCopy guard above already suppresses the
+            // owner-changed feedback loop; write unconditionally.
+            getClipboard().set_text(CLIPBOARD_TYPE, inText);
         }
 
         _menuTranslationBlock() {
@@ -1012,6 +1034,27 @@ var FastTranslate = GObject.registerClass(
             this._inputBtnPressId = this.inputEntry.connect('button-press-event', () => {
                 global.stage.set_key_focus(this.inputEntry.get_clutter_text());
                 return Clutter.EVENT_PROPAGATE;
+            });
+            // Auto-translate while typing (debounced). Only acts while the
+            // "Auto Translate" switch is ON; _triggerTranslation no-ops on empty.
+            this._inputTextChangedId = this.inputEntry.get_clutter_text().connect('text-changed', () => {
+                if (this._typingDebounceId) {
+                    GLib.Source.remove(this._typingDebounceId);
+                    this._typingDebounceId = null;
+                }
+                if (!this.autoTranslateSwitch || this.autoTranslateSwitch.state !== true) {
+                    return;
+                }
+                this._typingDebounceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 600, () => {
+                    this._typingDebounceId = null;
+                    if (this._destroyed) {
+                        return GLib.SOURCE_REMOVE;
+                    }
+                    if (this.autoTranslateSwitch.state === true) {
+                        this._triggerTranslation();
+                    }
+                    return GLib.SOURCE_REMOVE;
+                });
             });
             inputScrollBox.add_child(this.inputEntry);
             inputScroll.add_child(inputScrollBox);

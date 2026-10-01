@@ -225,7 +225,17 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         settings.bind('floating-background-toast', backgroundToastRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         doubleCopyGroup.add(backgroundToastRow);
 
-        backgroundModeRow.bind_property('active', backgroundToastRow, 'sensitive', GObject.BindingFlags.DEFAULT | GObject.BindingFlags.SYNC_CREATE);
+        // Dim gesture-dependent rows while the master switch is OFF so the UI
+        // never suggests options that currently do nothing.
+        const syncDoubleCopySensitive = () => {
+            const enabled = doubleCopyEnabledRow.active;
+            floatingAutoCopyRow.sensitive = enabled;
+            backgroundModeRow.sensitive = enabled;
+            backgroundToastRow.sensitive = enabled && backgroundModeRow.active;
+        };
+        doubleCopyEnabledRow.connect('notify::active', syncDoubleCopySensitive);
+        backgroundModeRow.connect('notify::active', syncDoubleCopySensitive);
+        syncDoubleCopySensitive();
 
         // Group 6: System and Shortcuts Integration
         const systemGroup = new Adw.PreferencesGroup({
