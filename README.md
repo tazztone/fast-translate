@@ -33,6 +33,8 @@ lastcommit-badge: True
 
 <span id="project_title">Fast Translate for GNOME Shell</span> is a GNOME Shell extension that brings **Google Translate and DeepL-powered translation** directly into your desktop — translate text from a panel popup or trigger instant clipboard translation with a double-copy shortcut.
 
+![Fast Translate banner](./screenshots/banner.webp)
+
 ## ✨ Features
 
 - **Panel menu translator** — a clean popover accessible from the GNOME top bar lets you type or paste text and translate it instantly.
