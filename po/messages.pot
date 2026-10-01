@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: fast-translate@tazztone.github.io\n"
 "Report-Msgid-Bugs-To: https://github.com/tazztone/translate-assistant/issues\n"
-"POT-Creation-Date: 2026-10-01 17:35+0200\n"
+"POT-Creation-Date: 2026-10-01 20:26+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,116 +17,125 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: extension.js:233
+#: extension.js:237
 msgid "Auto Paste from clipboard"
 msgstr ""
 
-#: extension.js:242 prefs.js:182
+#: extension.js:246 prefs.js:182
 msgid "Auto Translate"
 msgstr ""
 
-#: extension.js:250
+#: extension.js:254
 msgid "Auto Copy to clipboard"
 msgstr ""
 
-#: extension.js:261
+#: extension.js:265
 msgid "Settings"
 msgstr ""
 
-#: extension.js:289
+#: extension.js:293
 msgid "Automatically paste clipboard text when menu opens"
 msgstr ""
 
-#: extension.js:290
+#: extension.js:294
 msgid "Translate input text automatically while typing"
 msgstr ""
 
-#: extension.js:291
+#: extension.js:295
 msgid "Copy translation results to clipboard automatically"
 msgstr ""
 
-#: extension.js:292
+#: extension.js:296
 msgid "Open extension preferences"
 msgstr ""
 
-#: extension.js:686 extension.js:1304
+#: extension.js:679 extension.js:914
+#, javascript-format
+msgid "Text too long (max %d characters)"
+msgstr ""
+
+#: extension.js:694 extension.js:1334
 msgid "Cancel"
 msgstr ""
 
-#: extension.js:706 extension.js:748 extension.js:901 extension.js:937
+#: extension.js:714 extension.js:772 extension.js:931 extension.js:967
 msgid "Invalid URL"
 msgstr ""
 
-#: extension.js:709 extension.js:751 extension.js:903 extension.js:939
+#: extension.js:717 extension.js:775 extension.js:933 extension.js:969
 msgid "Error"
 msgstr ""
 
-#: extension.js:712 extension.js:754 extension.js:768 extension.js:791
-#: extension.js:810 extension.js:1214
+#: extension.js:720 extension.js:741 extension.js:778 extension.js:792
+#: extension.js:815 extension.js:834 extension.js:1244
 msgid "Translate"
 msgstr ""
 
-#: extension.js:794
+#: extension.js:738 extension.js:762
+msgid "DeepL URL must use https://"
+msgstr ""
+
+#: extension.js:818
 msgid "Cancelled"
 msgstr ""
 
-#: extension.js:828 extension.js:861
+#: extension.js:852 extension.js:887
 msgid "Translated"
 msgstr ""
 
-#: extension.js:832 extension.js:979
+#: extension.js:856 extension.js:1009
 msgid "Rate-limited or blocked by Google Translate. Please try again later."
 msgstr ""
 
-#: extension.js:834 extension.js:981
+#: extension.js:858 extension.js:1011
 msgid "Auth failed (403): check API key and URL in settings"
 msgstr ""
 
-#: extension.js:1104
+#: extension.js:1134
 msgid "Type or paste text..."
 msgstr ""
 
-#: extension.js:1245
+#: extension.js:1275
 msgid "Translation will appear here..."
 msgstr ""
 
-#: extension.js:1299
+#: extension.js:1329
 msgid "Swap languages"
 msgstr ""
 
-#: extension.js:1300
+#: extension.js:1330
 msgid "Paste from clipboard"
 msgstr ""
 
-#: extension.js:1301
+#: extension.js:1331
 msgid "Clear text"
 msgstr ""
 
-#: extension.js:1302
+#: extension.js:1332
 msgid "Copy translation to clipboard"
 msgstr ""
 
-#: extension.js:1304
+#: extension.js:1334
 msgid "Cancel translation"
 msgstr ""
 
-#: extension.js:1304
+#: extension.js:1334
 msgid "Translate text"
 msgstr ""
 
-#: extension.js:1307
+#: extension.js:1337
 msgid "Source language: "
 msgstr ""
 
-#: extension.js:1307
+#: extension.js:1337
 msgid "Auto"
 msgstr ""
 
-#: extension.js:1310
+#: extension.js:1340
 msgid "Target language: "
 msgstr ""
 
-#: extension.js:1694
+#: extension.js:1724
 msgid "Auto Copy"
 msgstr ""
 
@@ -227,7 +236,7 @@ msgstr ""
 msgid "Fill input with clipboard when popup opens"
 msgstr ""
 
-#: prefs.js:183 prefs.js:463
+#: prefs.js:183 prefs.js:459
 msgid "Translate while typing"
 msgstr ""
 
@@ -329,31 +338,27 @@ msgstr ""
 msgid "Extension Details"
 msgstr ""
 
-#: prefs.js:404
-msgid "Version"
-msgstr ""
-
-#: prefs.js:410
+#: prefs.js:406
 msgid "Author"
 msgstr ""
 
-#: prefs.js:416
+#: prefs.js:412
 msgid "Description"
 msgstr ""
 
-#: prefs.js:423
+#: prefs.js:419
 msgid "Links and Support"
 msgstr ""
 
-#: prefs.js:428
+#: prefs.js:424
 msgid "Project Homepage"
 msgstr ""
 
-#: prefs.js:443
+#: prefs.js:439
 msgid "Buy me a coffee"
 msgstr ""
 
-#: prefs.js:465
+#: prefs.js:461
 msgid "Translate while typing. May be rate-limited."
 msgstr ""
 

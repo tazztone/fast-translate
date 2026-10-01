@@ -38,14 +38,14 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 
-// EGO-A-005 reviewer note — clipboard access justification:
 // Clipboard access is the core, user-visible purpose of this extension
 // (translate clipboard/pasted text, copy results back). Reads happen only on:
 // explicit Paste button press, menu-open while "Auto Paste" is ON (default OFF),
-// the Super+T shortcut action, or the double-Ctrl+C gesture. Writes happen only on:
-// explicit Copy button press, or while "Auto Copy"/"Floating Auto Copy" is ON
-// (defaults OFF). No background harvesting, no persistence; text is sent only to
-// the user-selected translation service as the translation request payload.
+// a user-set clipboard shortcut, or the double-Ctrl+C gesture (default OFF).
+// Writes happen only on: explicit Copy button press, or while "Auto Copy"/
+// "Floating Auto Copy" is ON (defaults OFF). No background harvesting,
+// no persistence; text is sent only to the user-selected translation service
+// as the translation request payload.
 const CLIPBOARD_TYPE = St.ClipboardType.CLIPBOARD;
 function getClipboard() {
     return St.Clipboard.get_default();
@@ -60,6 +60,10 @@ const DOUBLE_COPY_MIN_US = 50 * 1000;
 const DOUBLE_COPY_DELAY_FALLBACK_MS = 500;
 const DOUBLE_COPY_DELAY_MIN_MS = 300;
 const DOUBLE_COPY_DELAY_MAX_MS = 5000;
+// Untrusted-input guard: clipboard text is attacker-controlled. Cap request size
+// so a multi-MB copy can't freeze the UI, choke notifications, or blast the API.
+const MAX_INPUT_CHARS = 5000;
+const MAX_NOTIFY_CHARS = 150;
 
 class Tooltip {
     constructor(actor, text) {
@@ -156,12 +160,12 @@ class Tooltip {
     }
 }
 
-// EGO-L-003 / EGO-L-004 note: all widget signals connected below store their
-// handler IDs (this._*Id) and are explicitly disconnected in destroy() via
-// _disconnectWidgetSignals(). One-shot GLib.idle_add sources go through
-// this._trackIdle() and pending ones are cancelled in destroy() via
-// _clearIdleSources(). Actors destroyed with the menu also auto-drop handlers,
-// but explicit disconnects keep enable()/disable() balanced for reviewers.
+// All widget signals connected below store their handler IDs (this._*Id)
+// and are explicitly disconnected in destroy() via _disconnectWidgetSignals().
+// One-shot GLib.idle_add sources go through this._trackIdle() and pending ones
+// are cancelled in destroy() via _clearIdleSources(). Actors destroyed with the
+// menu also auto-drop handlers, but explicit disconnects keep enable()/disable()
+// balanced.
 var FastTranslate = GObject.registerClass(
     class FastTranslate extends PanelMenu.Button {
         _init(extension) {
@@ -184,7 +188,7 @@ var FastTranslate = GObject.registerClass(
             this._interfaceSettings = null;
             this._colorSchemeChangedId = null;
             this._gtkThemeChangedId = null;
-            // EGO-L-003: debounced typing translation (see _menuTranslationBlock).
+            // Debounced typing translation (see _menuTranslationBlock).
             this._inputTextChangedId = null;
             this._typingDebounceId = null;
             // Lazily-created refs, initialized for reviewer clarity.
@@ -194,7 +198,7 @@ var FastTranslate = GObject.registerClass(
             this._floatingWindow = null;
             this.sourceSelector = null;
             this.targetSelector = null;
-            // EGO-L-003: handler IDs for every widget signal, disconnected in destroy().
+            // Handler IDs for every widget signal, disconnected in destroy().
             this._menuOpenStateChangedId = null;
             this._autoPasteToggledId = null;
             this._autoTranslateToggledId = null;
@@ -208,7 +212,7 @@ var FastTranslate = GObject.registerClass(
             this._clearBtnClickedId = null;
             this._translateBtnClickedId = null;
             this._copyBtnClickedId = null;
-            // EGO-L-004: pending one-shot idle sources, removed in destroy().
+            // Pending one-shot idle sources, removed in destroy().
             this._idleSources = new Set();
             // Dynamically created language-selector buttons ([actor, handlerId]).
             this._langSelectorBtns = [];
@@ -398,8 +402,8 @@ var FastTranslate = GObject.registerClass(
                 return;
             }
 
-            // EGO-A-005: don't even read the clipboard unless a consumer is
-            // armed — otherwise every system-wide copy would be inspected.
+            // Don't even read the clipboard unless a consumer is armed —
+            // otherwise every system-wide copy would be inspected.
             const doubleCopyEnabled = this._settings.get_boolean('double-copy-enabled');
             const autoPasteArmed = this.autoPasteSwitch && this.autoPasteSwitch.state === true;
             if (!doubleCopyEnabled && !autoPasteArmed) {
@@ -519,9 +523,9 @@ var FastTranslate = GObject.registerClass(
             }
         }
 
-        // EGO-L-004: register a one-shot idle source so a pending callback can
-        // be cancelled in destroy(). The wrapper unregisters the id on dispatch;
-        // callbacks must return GLib.SOURCE_REMOVE (one-shot).
+        // Register a one-shot idle source so a pending callback can be cancelled
+        // in destroy(). The wrapper unregisters the id on dispatch; callbacks must
+        // return GLib.SOURCE_REMOVE (one-shot).
         _trackIdle(callback) {
             const id = GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
                 this._idleSources.delete(id);
@@ -549,7 +553,7 @@ var FastTranslate = GObject.registerClass(
             this._langSelectorBtns = [];
         }
 
-        // EGO-L-003: disconnect every widget signal connected in _init() and
+        // Disconnect every widget signal connected in _init() and
         // _menuTranslationBlock(). Called from destroy() before super.destroy().
         _disconnectWidgetSignals() {
             if (this.autoPasteSwitch && this._autoPasteToggledId) {
@@ -671,6 +675,10 @@ var FastTranslate = GObject.registerClass(
 
         _translateText(fromOrTo, fromText, callback) {
             if (fromText && fromText !== "") {
+                if (fromText.length > MAX_INPUT_CHARS) {
+                    this._showError(_("Text too long (max %d characters)").format(MAX_INPUT_CHARS));
+                    return;
+                }
                 if (this.errorLabel) {
                     this.errorLabel.text = "";
                 }
@@ -725,6 +733,16 @@ var FastTranslate = GObject.registerClass(
                         preserve_formatting: !!this._preserve_formatting,
                     };
 
+                    // Never send the API key over plaintext: the URL is user-editable.
+                    if (!/^https:\/\//i.test(this._url || "")) {
+                        this._showError(_("DeepL URL must use https://"));
+                        this._cancellable = null;
+                        if (this.translateBtn) {
+                            this.translateBtn.label = _("Translate");
+                        }
+                        return;
+                    }
+
                     if (sourceLang && sourceLang !== 'AUTO') {
                         bodyObj.source_lang = sourceLang;
                     }
@@ -737,6 +755,12 @@ var FastTranslate = GObject.registerClass(
                         } else {
                             bodyObj.formality = this._formality;
                         }
+                    }
+
+                // Never send the API key over plaintext: the URL is user-editable.
+                    if (!/^https:\/\//i.test(this._url || "")) {
+                        Main.notify("Fast Translate", _("DeepL URL must use https://"));
+                        return;
                     }
 
                     const body = JSON.stringify(bodyObj);
@@ -858,7 +882,9 @@ var FastTranslate = GObject.registerClass(
                     if (isBackground) {
                         this._copyToClipboard(toText);
                         if (this._settings.get_boolean('floating-background-toast')) {
-                            Main.notify(_("Translated"), `${fromText} → ${toText}`);
+                            const shortFrom = fromText.length > MAX_NOTIFY_CHARS ? `${fromText.slice(0, MAX_NOTIFY_CHARS)}…` : fromText;
+                            const shortTo = toText.length > MAX_NOTIFY_CHARS ? `${toText.slice(0, MAX_NOTIFY_CHARS)}…` : toText;
+                            Main.notify(_("Translated"), `${shortFrom} → ${shortTo}`);
                         }
                     } else {
                         this._floatingWindow = new FloatingTranslationWindow(
@@ -884,6 +910,10 @@ var FastTranslate = GObject.registerClass(
 
         _translateTextIndependent(fromText, callback) {
             if (!fromText || fromText.trim() === "") return;
+            if (fromText.length > MAX_INPUT_CHARS) {
+                Main.notify("Fast Translate", _("Text too long (max %d characters)").format(MAX_INPUT_CHARS));
+                return;
+            }
 
             let message;
             if (this._translation_service === 1) {
@@ -1544,7 +1574,7 @@ class FloatingTranslationWindow {
     constructor(sourceText, targetText, sourceLang, targetLang, onDestroy, onCopyClicked, settings) {
         this._onDestroy = onDestroy;
         this._settings = settings;
-        // EGO-L-003: handler IDs, explicitly disconnected in destroy().
+        // Widget handler IDs, explicitly disconnected in destroy().
         this._overlayPressId = null;
         this._closeBtnClickedId = null;
         this._copyBtnClickedId = null;
@@ -1775,6 +1805,11 @@ class FloatingTranslationWindow {
             try { this.autoCopyBtn.disconnect(this._autoCopyBtnClickedId); } catch (e) {}
             this._autoCopyBtnClickedId = null;
         }
+        // Child widgets would die with overlay/actor below, but destroy owned
+        // buttons explicitly and release refs so disable() leaves nothing behind.
+        if (this.closeBtn) { this.closeBtn.destroy(); this.closeBtn = null; }
+        if (this.copyBtn) { this.copyBtn.destroy(); this.copyBtn = null; }
+        if (this.autoCopyBtn) { this.autoCopyBtn.destroy(); this.autoCopyBtn = null; }
         if (this.actor && this._allocationId) {
             try { this.actor.disconnect(this._allocationId); } catch (e) {}
             this._allocationId = null;

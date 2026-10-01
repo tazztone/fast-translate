@@ -400,12 +400,8 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         });
         aboutPage.add(aboutGroup);
 
-        const versionRow = new Adw.ActionRow({
-            title: _('Version'),
-            subtitle: this.metadata.version ? this.metadata.version.toString() : 'Unknown',
-        });
-        aboutGroup.add(versionRow);
-
+        // Note: no Version row — EGO sets metadata.version on upload,
+        // so a local version string would be stale or 'Unknown'.
         const authorRow = new Adw.ActionRow({
             title: _('Author'),
             subtitle: 'tazztone (Original by Lorenzo Carbonell / atareao)',

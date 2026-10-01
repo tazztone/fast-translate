@@ -1,14 +1,11 @@
 {
-  "description": "Translate with Google and DeepL Translator",
-  "extension-id": "fast-translate@tazztone.github.io",
+  "description": "Translate with Google and DeepL Translator.\n\nNote: This extension accesses the clipboard to translate copied text (only when you press Paste, use the clipboard shortcut you set, or double-press Ctrl+C with the gesture enabled) and to copy results back (only on Copy press or when Auto Copy is enabled). Translated text is sent only to the selected service (Google or DeepL) as the translation request.",
   "gettext-domain": "fast-translate@tazztone.github.io",
-  "icon": "fast-translate-icon",
   "name": "Fast Translate",
   "settings-schema": "org.gnome.shell.extensions.fast-translate",
   "shell-version": [
     "45", "46", "47", "48", "49", "50"
   ],
   "url": "https://github.com/tazztone/translate-assistant",
-  "uuid": "fast-translate@tazztone.github.io",
-  "version": 11
+  "uuid": "fast-translate@tazztone.github.io"
 }

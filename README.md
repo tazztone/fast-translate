@@ -1,10 +1,10 @@
 <!-- start project-info -->
 <!--
 project_title: Fast Translate
-github_project: https://github.com/tazztone/fast-translate
+github_project: https://github.com/tazztone/translate-assistant
 license: MIT
 icon: icons/fast-translate-icon.svg
-homepage: https://github.com/tazztone/fast-translate
+homepage: https://github.com/tazztone/translate-assistant
 license-badge: True
 contributors-badge: True
 lastcommit-badge: True
@@ -15,15 +15,15 @@ lastcommit-badge: True
 <!-- start badges -->
 
 ![License MIT](https://img.shields.io/badge/license-MIT-green)
-![Contributors](https://img.shields.io/github/contributors-anon/tazztone/fast-translate)
-![Last commit](https://img.shields.io/github/last-commit/tazztone/fast-translate)
+![Contributors](https://img.shields.io/github/contributors-anon/tazztone/translate-assistant)
+![Last commit](https://img.shields.io/github/last-commit/tazztone/translate-assistant)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-tazztone-yellow?logo=buy-me-a-coffee)](https://buymeacoffee.com/tazztone)
 <!-- end badges -->
 
 <!-- start description -->
 <h1 align="center">Welcome to <span id="project_title">Fast Translate for GNOME Shell</span> 👋</h1>
 <p>
-<a href="https://github.com/tazztone/fast-translate" id="homepage" rel="nofollow">
+<a href="https://github.com/tazztone/translate-assistant" id="homepage" rel="nofollow">
 <img align="right" height="128" id="icon" src="icons/fast-translate-icon.svg" width="128"/>
 </a>
 </p>

@@ -111,7 +111,7 @@
             <description>Set DeepL API key</description>
         </key>
         <key name="keybinding-translate-clipboard" type="as">
-            <default><![CDATA[['<Super>t']]]></default>
+            <default><![CDATA[[]]]></default>
             <summary>Shortcut</summary>
             <description>Shortcut to translate the content of the clipboard</description>
         </key>
@@ -151,7 +151,7 @@
             <description>Display a notification when background translation finishes</description>
          </key>
          <key name="double-copy-enabled" type="b">
-            <default>true</default>
+            <default>false</default>
             <summary>Enable Double-Copy Gesture</summary>
             <description>Trigger instant translation when the same text is copied twice in quick succession (Ctrl+C Ctrl+C). Turn off if translation windows appear unwantedly.</description>
          </key>

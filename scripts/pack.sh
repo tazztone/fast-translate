@@ -2,22 +2,32 @@
 # pack.sh: Safe extension packaging script.
 set -euo pipefail
 
-echo "🧹 Cleaning previous packages..."
-rm -f *.zip
+# NOTE: never pack inside the repo dir (gnome-extensions follows symlinks
+# and can wipe sources). Always stage in a temp dir outside the source tree.
+# Use a repo-local temp dir: sandboxes/CI often mount /tmp read-only.
+PACK_TMP="$(mktemp -d -p . .pack-XXXXXX)"
+cleanup() { rm -rf "$PACK_TMP"; }
+trap cleanup EXIT
 
 echo "📦 Copying files to temporary directory..."
-mkdir -p /tmp/fast-translate-pack
-cp -r extension.js prefs.js translation-helper.js metadata.json stylesheet.css icons/ po/ schemas/ /tmp/fast-translate-pack/
+mkdir -p "$PACK_TMP/icons"
+cp extension.js prefs.js translation-helper.js metadata.json stylesheet.css "$PACK_TMP/"
+cp -r po schemas "$PACK_TMP/"
+# Ship only icons actually referenced by the code (dynamic
+# fast-translate-{active,paused}-{dark,light} + fast-translate-icon).
+# The atareao/bmc/social leftovers stay in the repo but out of the zip.
+cp icons/fast-translate-active-dark.svg icons/fast-translate-active-light.svg icons/fast-translate-paused-dark.svg icons/fast-translate-paused-light.svg icons/fast-translate-icon.svg icons/fast-translate-icon.png "$PACK_TMP/icons/"
 
 echo "⚡ Compiling GSettings schemas..."
-glib-compile-schemas /tmp/fast-translate-pack/schemas/
+glib-compile-schemas --strict "$PACK_TMP/schemas/"
 
 echo "🎁 Packing extension via gnome-extensions pack..."
-(cd /tmp/fast-translate-pack && gnome-extensions pack --force --podir=po --extra-source=translation-helper.js --extra-source=icons)
+(cd "$PACK_TMP" && gnome-extensions pack --force --podir=po --extra-source=translation-helper.js --extra-source=icons)
 
 echo "💾 Moving package back to project root..."
-cp /tmp/fast-translate-pack/*.zip .
-rm -rf /tmp/fast-translate-pack
+# Only replace the old zip after the new one built successfully.
+rm -f *.zip
+cp "$PACK_TMP"/*.zip .
 
 echo "✅ Packaging complete: $(ls *.zip)"
 
