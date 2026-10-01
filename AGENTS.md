@@ -1,14 +1,16 @@
 # AGENTS.md
 
 ## Critical Rules
-- **NEVER run `gnome-extensions install` or `gnome-extensions pack` from within this repo directory.** The install tool follows symlinks and will wipe the source directory contents.
-- **Do not load ESModules via legacy `imports`** (e.g. `imports.ui.main` throws SyntaxError in GNOME 45+). Use static `import` or dynamic `await import()`.
-- **Do not reassign ESModule exports directly** (e.g. `Main.notify = ...`). Monkeypatch mutable prototypes (e.g. `MessageTray.Source.prototype.addNotification`).
-- **GJS constraint**: No `fetch`/`URLSearchParams` inside the shell process (use `Soup.Session` + `GLib.Bytes` as done in `extension.js`).
+- NEVER run `gnome-extensions install` or `gnome-extensions pack` from within this repo directory.
+- Load ESModules via static `import` or dynamic `await import()` only, never legacy `imports`.
+- Never reassign ESModule exports directly; monkeypatch mutable prototypes instead.
+- No `fetch`/`URLSearchParams` inside the shell process; use `Soup.Session` + `GLib.Bytes`.
+- Keep `LICENSE` MIT (original © 2020 Lorenzo Carbonell); EGO requires GPL-2.0-or-later-compatible terms.
 
-## Dev & Packaging Scripts
-- **Safe Packaging**: Run `bash scripts/pack.sh` (compiles schemas, compiles translations, and packs via temporary directory safely).
-- **Extension Reload**: Run `bash scripts/reload.sh` (executes disable/enable cycle).
-- **Watch Logs**: Run `journalctl -f -o cat /usr/bin/gnome-shell`
+## Dev Commands
+- Package only via `bash scripts/pack.sh` (schemas + translations via temp dir).
+- Reload via `bash scripts/reload.sh`; watch logs with `journalctl -f -o cat /usr/bin/gnome-shell`.
 
-
+## Testing & Sessions
+- Do not remove the post-enable settle wait in `test/integration.sh` (timing tests fail on unsettled shells).
+- If `enable` succeeds but state stays INACTIVE with no logs and stale version info, log out/in (host shell predates the changes).
