@@ -11,6 +11,72 @@ global.testRunnerPromise = (async () => {
             return { success: false, error: "Indicator not found" };
         }
 
+        // Test 0: Settings hygiene + ship-state defaults audit.
+        // Snapshot every key this suite may touch, reset to schema defaults
+        // (reviewers check defaults first; resets also make reruns idempotent).
+        // Snapshot is restored before the success return and in the catch
+        // below; individual tests additionally use try/finally.
+        const TOUCHED_KEYS = ['translation-service', 'source-lang', 'target-lang',
+            'url', 'apikey', 'floating-auto-copy', 'floating-background-mode',
+            'floating-background-toast', 'double-copy-enabled', 'double-copy-delay',
+            'auto-paste', 'auto-translate', 'auto-copy',
+            'keybinding-translate-clipboard', 'notifications'];
+        const _settingsSnapshot = {};
+        for (const _k of TOUCHED_KEYS) {
+            try { _settingsSnapshot[_k] = indicator._settings.get_value(_k); } catch (e) { _settingsSnapshot[_k] = null; }
+        }
+        const _restoreSettingsSnapshot = () => {
+            for (const _k of TOUCHED_KEYS) {
+                try { if (_settingsSnapshot[_k]) indicator._settings.set_value(_k, _settingsSnapshot[_k]); } catch (e) {}
+            }
+        };
+        for (const _k of TOUCHED_KEYS) {
+            try { indicator._settings.reset(_k); } catch (e) {}
+        }
+        // Pump the mainloop so the reset propagates through _loadPreferences.
+        const _pumpMainloop = () => new Promise(resolve => {
+            const GLib = imports.gi.GLib;
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => { resolve(); return GLib.SOURCE_REMOVE; });
+        });
+        await _pumpMainloop();
+
+        // Test 0b: audit schema *defaults* (state-independent: reads defaults,
+        // not live values). Safe-default contract EGO reviewers check first.
+        const _def = (k) => indicator._settings.get_default_value(k).unpack();
+        const _safeDefaults = [
+            ['double-copy-enabled', false],
+            ['auto-paste', false],
+            ['auto-copy', false],
+            ['auto-translate', false],
+            ['floating-auto-copy', false],
+            ['floating-background-mode', false],
+            ['floating-background-toast', true],
+            ['notifications', false],
+            ['apikey', ''],
+            ['translation-service', 'Google Translate'],
+        ];
+        for (const [k, expected] of _safeDefaults) {
+            const actual = _def(k);
+            if (actual !== expected) {
+                _restoreSettingsSnapshot();
+                return { success: false, error: 'Unsafe ship-state default: ' + k + '=' + JSON.stringify(actual) + ', expected ' + JSON.stringify(expected) };
+            }
+        }
+        if (!(_def('url') || '').startsWith('https://')) {
+            _restoreSettingsSnapshot();
+            return { success: false, error: 'Unsafe ship-state default: url=' + JSON.stringify(_def('url')) + ', must use https://' };
+        }
+        const _delayDef = _def('double-copy-delay');
+        if (typeof _delayDef !== 'number' || _delayDef < 300 || _delayDef > 5000) {
+            _restoreSettingsSnapshot();
+            return { success: false, error: 'Unsafe ship-state default: double-copy-delay=' + JSON.stringify(_delayDef) + ', must be 300-5000' };
+        }
+        const _kbDef = _def('keybinding-translate-clipboard');
+        if (!Array.isArray(_kbDef) || _kbDef.length !== 0) {
+            _restoreSettingsSnapshot();
+            return { success: false, error: 'Unsafe ship-state default: keybinding-translate-clipboard=' + JSON.stringify(_kbDef) + ', must ship empty' };
+        }
+
         // Test 1: Verify elements exist
         if (!indicator.inputEntry) return { success: false, error: "inputEntry missing" };
         if (!indicator.outputEntry) return { success: false, error: "outputEntry missing" };
@@ -367,6 +433,9 @@ global.testRunnerPromise = (async () => {
             indicator._settings.set_boolean('floating-auto-copy', false);
             indicator._settings.set_boolean('floating-background-mode', false);
             indicator._settings.set_boolean('floating-background-toast', true);
+            // Gesture harness: Test 0 resets to ship-state (gesture OFF), so
+            // each double-copy test must opt in explicitly.
+            indicator._settings.set_boolean('double-copy-enabled', true);
             if (indicator._floatingWindow) {
                 indicator._floatingWindow.destroy();
                 indicator._floatingWindow = null;
@@ -480,6 +549,7 @@ global.testRunnerPromise = (async () => {
             // Test 8b: Auto Copy functionality for Double-copy
             const originalAutoCopyState = indicator._settings.get_boolean('floating-auto-copy');
             indicator._settings.set_boolean('floating-auto-copy', true);
+            indicator._settings.set_boolean('double-copy-enabled', true);
             try {
                 let autoCopiedText = "";
                 Clipboard.set_text = function(type, text) {
@@ -536,6 +606,7 @@ global.testRunnerPromise = (async () => {
             const originalBgToast = indicator._settings.get_boolean('floating-background-toast');
             indicator._settings.set_boolean('floating-background-mode', true);
             indicator._settings.set_boolean('floating-background-toast', true);
+            indicator._settings.set_boolean('double-copy-enabled', true);
 
             const MessageTray = await import("resource:///org/gnome/shell/ui/messageTray.js");
             const originalAddNotification = MessageTray.Source.prototype.addNotification;
@@ -621,6 +692,7 @@ global.testRunnerPromise = (async () => {
             const originalBgToastD = indicator._settings.get_boolean('floating-background-toast');
             indicator._settings.set_boolean('floating-background-mode', true);
             indicator._settings.set_boolean('floating-background-toast', false);
+            indicator._settings.set_boolean('double-copy-enabled', true);
 
             let notifyCalledD = false;
             MessageTray.Source.prototype.addNotification = function(notification) {
@@ -1006,12 +1078,128 @@ global.testRunnerPromise = (async () => {
             return { success: false, error: "FloatingTranslationWindow centering/Escape test failed: " + e.message };
         }
 
+        // Test 10: insecure DeepL URL is refused on BOTH translate paths.
+        // Regression: the floating path once bypassed the https guard, which
+        // would send the API key over plaintext http. Neither path may issue
+        // HTTP, invoke its callback, or leave the UI in-flight.
+        {
+            const origService10 = indicator._settings.get_enum('translation-service');
+            const origUrl10 = indicator._settings.get_string('url');
+            const origAsync10 = indicator._httpSession.send_and_read_async;
+            let httpIssued10 = false;
+            try {
+                indicator._settings.set_enum('translation-service', 0); // DeepL
+                indicator._settings.set_string('url', 'http://api-free.deepl.com/v2/translate');
+                await _pumpMainloop();
+                indicator._httpSession.send_and_read_async = function() { httpIssued10 = true; };
+
+                // Panel path
+                let panelCb10 = false;
+                indicator._translateText(true, 'Hello', () => { panelCb10 = true; });
+                if (httpIssued10) return { success: false, error: 'Test 10: panel path sent HTTP over insecure URL' };
+                if (panelCb10) return { success: false, error: 'Test 10: panel path invoked callback after https refusal' };
+                if (indicator._cancellable !== null) return { success: false, error: 'Test 10: panel path leaked cancellable after refusal' };
+                if (indicator.translateBtn.label !== 'Translate') return { success: false, error: 'Test 10: panel Translate button stuck after refusal' };
+                const errText10 = String(indicator.errorLabel ? indicator.errorLabel.text : '');
+                if (!errText10.includes('https')) return { success: false, error: 'Test 10: panel path did not surface the https error, got: ' + errText10 };
+
+                // Independent (floating/background) path
+                let indepCb10 = false;
+                indicator._translateTextIndependent('Hello', () => { indepCb10 = true; });
+                if (httpIssued10) return { success: false, error: 'Test 10: independent path sent HTTP over insecure URL' };
+                if (indepCb10) return { success: false, error: 'Test 10: independent path invoked callback after https refusal' };
+            } finally {
+                indicator._httpSession.send_and_read_async = origAsync10;
+                try { indicator._settings.set_enum('translation-service', origService10); } catch (e) {}
+                try { indicator._settings.set_string('url', origUrl10); } catch (e) {}
+                await _pumpMainloop();
+            }
+        }
+
+        // Test 11: input-hardening matrix on the live instance.
+        {
+            if (indicator._isDeepLUrlSecure() !== true) return { success: false, error: 'Test 11: default https URL not recognised as secure' };
+            const defUrl11 = indicator._settings.get_default_value('url').unpack();
+            try {
+                indicator._settings.set_string('url', 'http://plain.example/translate');
+                await _pumpMainloop();
+                if (indicator._isDeepLUrlSecure() !== false) return { success: false, error: 'Test 11: http URL recognised as secure' };
+                indicator._settings.set_string('url', '');
+                await _pumpMainloop();
+                if (indicator._isDeepLUrlSecure() !== false) return { success: false, error: 'Test 11: empty URL recognised as secure' };
+            } finally {
+                try { indicator._settings.set_string('url', defUrl11); } catch (e) {}
+                await _pumpMainloop();
+            }
+            if (indicator._get_country_code('Garbage (XX)') !== 'XX') return { success: false, error: 'Test 11: parenthesised tag misparsed' };
+            if (typeof indicator._get_country_code('Garbage (XX)') !== 'string') return { success: false, error: 'Test 11: corrupt tag did not yield a string' };
+            if (indicator._get_country_code(null) !== 'AUTO') return { success: false, error: 'Test 11: null language tag did not degrade to AUTO' };
+            if (indicator._get_country_code('') !== 'AUTO') return { success: false, error: 'Test 11: empty language tag did not degrade to AUTO' };
+            if (indicator._get_country_code('German (DE)') !== 'DE') return { success: false, error: 'Test 11: valid language tag misparsed' };
+        }
+
+        // Test 12: corrupt dconf (invalid enum nick, writable only via dconf
+        // since GSettings validates API writes) degrades to sl=auto and a
+        // working translation — never a TypeError crash.
+        {
+            const GLib12 = imports.gi.GLib;
+            const DCONF_SRC = '/org/gnome/shell/extensions/fast-translate/source-lang';
+            const [okR12, outR12] = GLib12.spawn_sync(null, ['dconf', 'read', DCONF_SRC], null, GLib12.SpawnFlags.SEARCH_PATH, null);
+            const savedSrc12 = okR12 ? imports.byteArray.toString(outR12).trim() : '';
+            const origService12 = indicator._settings.get_enum('translation-service');
+            const origAsync12 = indicator._httpSession.send_and_read_async;
+            const origFinish12 = indicator._httpSession.send_and_read_finish;
+            let capturedMsg12 = null;
+            let capturedCb12 = null;
+            let capturedSession12 = null;
+            try {
+                const [okW12] = GLib12.spawn_sync(null, ['dconf', 'write', DCONF_SRC, "'Garbage'"], null, GLib12.SpawnFlags.SEARCH_PATH, null);
+                if (!okW12) return { success: false, error: 'Test 12: dconf write of corrupt value failed' };
+                indicator._settings.set_enum('translation-service', 1); // Google
+                await _pumpMainloop();
+                await _pumpMainloop();
+                if (indicator._source_lang !== 'AUTO') return { success: false, error: 'Test 12: corrupt source-lang not degraded, got ' + indicator._source_lang };
+                indicator._httpSession.send_and_read_async = function(message, priority, cancellable, callback) {
+                    capturedMsg12 = message;
+                    capturedSession12 = this;
+                    capturedCb12 = callback;
+                };
+                indicator.outputEntry.get_clutter_text().set_text('');
+                let out12 = null;
+                indicator._translateText(true, 'Hello', (t) => { out12 = t; });
+                if (!capturedCb12) return { success: false, error: 'Test 12: no HTTP issued after corrupt-dconf degradation' };
+                const uri12 = capturedMsg12.uri ? capturedMsg12.uri.to_string() : (capturedMsg12.get_uri ? capturedMsg12.get_uri().to_string() : '');
+                if (!uri12.includes('sl=auto')) return { success: false, error: 'Test 12: expected sl=auto in request, got: ' + uri12 };
+                Object.defineProperty(capturedMsg12, 'status_code', { get: () => 200, configurable: true });
+                indicator._httpSession.send_and_read_finish = function(result) {
+                    const GLib = imports.gi.GLib;
+                    const text = JSON.stringify([[["Hola", "Hello", null, null, 1]], null, "en"]);
+                    return new GLib.Bytes(new TextEncoder().encode(text));
+                };
+                capturedCb12(capturedSession12, 'dummy_result');
+                if (out12 !== 'Hola') return { success: false, error: 'Test 12: degraded translation did not return output' };
+                if (indicator.translateBtn.label !== 'Translate') return { success: false, error: 'Test 12: button stuck after degraded translation' };
+                if (indicator._cancellable !== null) return { success: false, error: 'Test 12: cancellable leaked after degraded translation' };
+            } finally {
+                indicator._httpSession.send_and_read_async = origAsync12;
+                indicator._httpSession.send_and_read_finish = origFinish12;
+                try {
+                    if (savedSrc12) GLib12.spawn_sync(null, ['dconf', 'write', DCONF_SRC, savedSrc12], null, GLib12.SpawnFlags.SEARCH_PATH, null);
+                    else GLib12.spawn_sync(null, ['dconf', 'reset', DCONF_SRC], null, GLib12.SpawnFlags.SEARCH_PATH, null);
+                } catch (e) {}
+                try { indicator._settings.set_enum('translation-service', origService12); } catch (e) {}
+                await _pumpMainloop();
+            }
+        }
+
         // Restore mock functions
         indicator._httpSession.send_and_read_async = originalSendReadAsync;
         indicator._httpSession.send_and_read_finish = originalSendReadFinish;
 
+        _restoreSettingsSnapshot();
         return { success: true };
     } catch (e) {
+        try { _restoreSettingsSnapshot(); } catch (_) {}
         return { success: false, error: e.message || String(e) };
     }
 })();

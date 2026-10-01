@@ -72,6 +72,32 @@ try {
     const mockWindow = new Adw.PreferencesWindow();
     prefsInstance.fillPreferencesWindow(mockWindow);
 
+    // 6b. Credential hygiene: the API key row must be masked
+    // (Adw.PasswordEntryRow), never a plaintext Adw.EntryRow.
+    // Note: PasswordEntryRow subclasses EntryRow, so the negative check
+    // must exclude subclass instances.
+    const findWidget = (root, pred) => {
+        if (pred(root)) return root;
+        let child = root.get_first_child ? root.get_first_child() : null;
+        while (child) {
+            const found = findWidget(child, pred);
+            if (found) return found;
+            child = child.get_next_sibling ? child.get_next_sibling() : null;
+        }
+        return null;
+    };
+    const maskedKeyRow = findWidget(mockWindow,
+        (w) => (w instanceof Adw.PasswordEntryRow) && w.get_title && w.get_title() === 'API Key');
+    if (!maskedKeyRow) {
+        throw new Error('API Key row is not a masked Adw.PasswordEntryRow');
+    }
+    const plainKeyRow = findWidget(mockWindow,
+        (w) => (w instanceof Adw.EntryRow) && !(w instanceof Adw.PasswordEntryRow) && w.get_title && w.get_title() === 'API Key');
+    if (plainKeyRow) {
+        throw new Error('Plaintext Adw.EntryRow exposes the API Key');
+    }
+    console.log('✅ Credential masking validation successful!');
+
     // Cleanup temp file
     tempFile.delete(null);
 

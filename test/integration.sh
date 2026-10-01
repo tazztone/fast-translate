@@ -34,6 +34,16 @@ dbus-run-session bash -c '
     # Remove stale lockfile from previous runs sharing /run/user/$UID
     rm -f "${XDG_RUNTIME_DIR:-/run/user/$UID}/gnome-shell-disable-extensions" 2>/dev/null || true
 
+    # Hermetic dconf: without this the nested shell shares ~/.config/dconf/user
+    # with the live session — loading every third-party extension installed
+    # there (one of which segfaults headless shells on disable/enable churn)
+    # and leaking every test settings-write into the live desktop. With a
+    # private user DB the nested shell starts extension-free and fully
+    # isolated; the suite enables only the extension under test.
+    export DCONF_PROFILE_DIR="$(mktemp -d /tmp/ft-dconf-profile-XXXXXX)"
+    printf 'user-db:testdb\n' > "$DCONF_PROFILE_DIR/profile"
+    export DCONF_PROFILE="$DCONF_PROFILE_DIR/profile"
+
     export GSETTINGS_SCHEMA_DIR="$(pwd)/schemas"
 
     echo "🚀 Starting headless GNOME Shell session..."
@@ -45,6 +55,7 @@ dbus-run-session bash -c '
         kill "$SHELL_PID" 2>/dev/null || true
         wait "$SHELL_PID" 2>/dev/null || true
         pkill -P "$SHELL_PID" 2>/dev/null || true
+        rm -rf "${DCONF_PROFILE_DIR:-}" 2>/dev/null || true
     }
     trap cleanup EXIT INT TERM
 
@@ -94,6 +105,32 @@ dbus-run-session bash -c '
         exit 1
     fi
 
+    # Round-trip: disable/enable once more and require a clean return to
+    # ACTIVE (catches re-enable crashes and ERROR states reviewers probe for).
+    echo "🔁 Testing disable/enable round-trip..."
+    gnome-extensions disable fast-translate@tazztone.github.io
+    sleep 2
+    gnome-extensions enable fast-translate@tazztone.github.io
+    INFO2=""
+    for i in $(seq 1 40); do
+        INFO2=$(gnome-extensions info fast-translate@tazztone.github.io 2>/dev/null || echo "Command failed")
+        if echo "$INFO2" | grep -q "State: *ACTIVE"; then
+            break
+        fi
+        if echo "$INFO2" | grep -iq "State: *ERROR"; then
+            echo "❌ Integration test failed: Extension in ERROR state after re-enable!"
+            echo "$INFO2"
+            exit 1
+        fi
+        sleep 0.5
+        if [ "$i" -eq 40 ]; then
+            echo "❌ Integration test failed: Extension never returned to ACTIVE after re-enable."
+            echo "$INFO2"
+            exit 1
+        fi
+    done
+    echo "✅ Disable/enable round-trip clean."
+
     # Let startup churn (DING/GSConnect/Tracker) settle: the debounce test
     # only has ~200ms of wall-clock margin, it must not run under load.
     echo "💤 Letting session settle before tests..."
@@ -120,6 +157,11 @@ dbus-run-session bash -c '
     CLEAN_RESULT=${RESULT//\\/}
     if echo "$CLEAN_RESULT" | grep -q "\"success\": *true" && ! echo "$CLEAN_RESULT" | grep -q "\"success\": *false"; then
         echo "✅ Programmatic integration tests passed successfully!"
+        if grep -i "fast-translate" "$LOG_FILE" | grep -qiE "JS ERROR|uncaught|traceback"; then
+            echo "❌ Extension logged errors during tests:"
+            grep -i "fast-translate" "$LOG_FILE" | grep -iE "JS ERROR|uncaught|traceback" | head -n 10
+            exit 1
+        fi
         rm -f "$LOG_FILE" || true
         exit 0
     else

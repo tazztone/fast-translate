@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "test": "node test/unit.test.js && gjs -m test/prefs-validator.js"
+    "test": "node test/unit.test.js && gjs -m test/prefs-validator.js && bash test/zip-contents.sh",
+    "test:integration": "bash test/integration.sh"
   }
 }
