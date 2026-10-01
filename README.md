@@ -84,6 +84,8 @@ Copy any text normally, then press `Ctrl+C` a second time within the detection w
 
 ![Floating window triggered by the double-copy shortcut](./screenshots/CTRLCC.webp)
 
+![Preferences showing the Double Ctrl+C group with detection window](./screenshots/prefs-double-copy.webp)
+
 ### Preferences
 
 Open **GNOME Settings → Extensions → Fast Translate → Settings** to configure:
