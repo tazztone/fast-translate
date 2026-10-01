@@ -143,7 +143,12 @@ dbus-run-session bash -c '
     sleep 3
 
     echo "🧪 Triggering programmatic JS tests via DBus Eval..."
-    gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell --method org.gnome.Shell.Eval "$JS_CODE" > /dev/null
+    TRIGGER_OUT=$(gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell --method org.gnome.Shell.Eval "$JS_CODE" 2>&1)
+    if ! echo "$TRIGGER_OUT" | grep -q "^(true,"; then
+        echo "❌ Integration test failed: Shell rejected the test Eval:"
+        echo "$TRIGGER_OUT" | head -c 600
+        exit 1
+    fi
 
     echo "⏳ Waiting for asynchronous assertions to complete..."
     RESULT=""
