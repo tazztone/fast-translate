@@ -7,3 +7,4 @@ schemas/gschemas.compiled
 scratch/
 venv
 .venv
+test/mock-prefs-runner.js
