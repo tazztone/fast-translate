@@ -532,9 +532,6 @@ var FastTranslate = GObject.registerClass(
             this.autoPasteSwitch.setToggleState(this._getValue('auto-paste'));
             this.autoTranslateSwitch.setToggleState(this._getValue('auto-translate'));
             this.autoCopySwitch.setToggleState(this._getValue('auto-copy'));
-            if (this.floatingAutoCopySwitch) {
-                this.floatingAutoCopySwitch.setToggleState(this._getValue('floating-auto-copy'));
-            }
 
             this._set_icon_indicator();
             this._unbindShortcut();

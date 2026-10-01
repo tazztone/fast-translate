@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: Translate Assistant - 1\n"
 "Report-Msgid-Bugs-To: https://github.com/tazztone/translate-assistant/"
 "issues\n"
-"POT-Creation-Date: 2026-06-27 16:06+0200\n"
+"POT-Creation-Date: 2026-10-01 16:33+0200\n"
 "PO-Revision-Date: 2020-09-15 19:23+0200\n"
 "Last-Translator: Lorenzo <atareao@atareao.es>\n"
 "Language-Team: Spanish\n"
@@ -18,373 +18,390 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: extension.js:175 prefs.js:181
+#: extension.js:213
 msgid "Auto Paste from clipboard"
 msgstr ""
 
-#: extension.js:184 prefs.js:188
+#: extension.js:222 prefs.js:182
 msgid "Auto Translate"
 msgstr "Traducción automática"
 
-#: extension.js:192 prefs.js:195
+#: extension.js:230
 msgid "Auto Copy to clipboard"
 msgstr ""
 
-#: extension.js:203
+#: extension.js:241
 msgid "Settings"
 msgstr "Configuración"
 
-#: extension.js:218
+#: extension.js:256
 msgid "Automatically paste clipboard text when menu opens"
 msgstr ""
 
-#: extension.js:219
+#: extension.js:257
 msgid "Translate input text automatically while typing"
 msgstr ""
 
-#: extension.js:220
+#: extension.js:258
 msgid "Copy translation results to clipboard automatically"
 msgstr ""
 
-#: extension.js:221
+#: extension.js:259
 msgid "Open extension preferences"
 msgstr ""
 
-#: extension.js:417 extension.js:981
+#: extension.js:589 extension.js:1206
 msgid "Cancel"
 msgstr "Cancelar"
 
-#: extension.js:437 extension.js:479 extension.js:613 extension.js:649
+#: extension.js:609 extension.js:651 extension.js:803 extension.js:839
 msgid "Invalid URL"
 msgstr ""
 
-#: extension.js:440 extension.js:482 extension.js:615 extension.js:651
+#: extension.js:612 extension.js:654 extension.js:805 extension.js:841
 msgid "Error"
 msgstr ""
 
-#: extension.js:443 extension.js:485 extension.js:497 extension.js:512
-#: extension.js:891
+#: extension.js:615 extension.js:657 extension.js:671 extension.js:694
+#: extension.js:713 extension.js:1116
 #, fuzzy
 #| msgid "Translated"
 msgid "Translate"
 msgstr "Traducido"
 
-#: extension.js:533 extension.js:573
-msgid "Translated"
-msgstr "Traducido"
-
-#: extension.js:537 extension.js:685
-msgid "Rate-limited or blocked by Google Translate. Please try again later."
-msgstr ""
-
-#: extension.js:539 extension.js:687
-msgid "Auth failed (403): check API key and URL in settings"
-msgstr ""
-
-#: extension.js:548
+#: extension.js:697
 #, fuzzy
 #| msgid "Cancel"
 msgid "Cancelled"
 msgstr "Cancelar"
 
-#: extension.js:806
+#: extension.js:730 extension.js:763
+msgid "Translated"
+msgstr "Traducido"
+
+#: extension.js:734 extension.js:881
+msgid "Rate-limited or blocked by Google Translate. Please try again later."
+msgstr ""
+
+#: extension.js:736 extension.js:883
+msgid "Auth failed (403): check API key and URL in settings"
+msgstr ""
+
+#: extension.js:1006
 msgid "Type or paste text..."
 msgstr ""
 
-#: extension.js:922
+#: extension.js:1147
 msgid "Translation will appear here..."
 msgstr ""
 
-#: extension.js:976
+#: extension.js:1201
 #, fuzzy
 #| msgid "Source language"
 msgid "Swap languages"
 msgstr "Idioma origen"
 
-#: extension.js:977
+#: extension.js:1202
 msgid "Paste from clipboard"
 msgstr ""
 
-#: extension.js:978
+#: extension.js:1203
 msgid "Clear text"
 msgstr ""
 
-#: extension.js:979
+#: extension.js:1204
 #, fuzzy
 #| msgid "Shortcut to translate the content of the clipboard"
 msgid "Copy translation to clipboard"
 msgstr "Atajo de teclado para traducir el contenido del portapapeles"
 
-#: extension.js:981
+#: extension.js:1206
 msgid "Cancel translation"
 msgstr ""
 
-#: extension.js:981
+#: extension.js:1206
 #, fuzzy
 #| msgid "Translated"
 msgid "Translate text"
 msgstr "Traducido"
 
-#: extension.js:984
+#: extension.js:1209
 #, fuzzy
 #| msgid "Source language"
 msgid "Source language: "
 msgstr "Idioma origen"
 
-#: extension.js:984
+#: extension.js:1209
 #, fuzzy
 #| msgid "Auto copy"
 msgid "Auto"
 msgstr "Copia automática"
 
-#: extension.js:987
+#: extension.js:1212
 #, fuzzy
 #| msgid "Target language"
 msgid "Target language: "
 msgstr "Idioma destino"
 
-#: extension.js:1339
+#: extension.js:1584
 msgid "Auto Copy"
 msgstr "Copia automática"
 
-#: prefs.js:44
+#: prefs.js:43
+msgid "Preferences"
+msgstr ""
+
+#: prefs.js:50
 msgid "General"
 msgstr ""
 
-#: prefs.js:51
-#, fuzzy
-#| msgid "Settings"
-msgid "Language Settings"
-msgstr "Configuración"
-
-#: prefs.js:59
+#: prefs.js:58
 #, fuzzy
 #| msgid "Translated"
 msgid "Translation Service"
 msgstr "Traducido"
 
-#: prefs.js:60
-msgid "The translation service provider to use"
+#: prefs.js:59
+msgid "Google needs no key. DeepL needs an API key."
 msgstr ""
 
-#: prefs.js:78
+#: prefs.js:77
 #, fuzzy
 #| msgid "Source language"
 msgid "Source Language"
 msgstr "Idioma origen"
 
-#: prefs.js:79 schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:81
-msgid "Language of the text to be translated"
-msgstr "Idioma del cual quieres traducir"
+#: prefs.js:78
+#, fuzzy
+#| msgid "Source language"
+msgid "Default source language"
+msgstr "Idioma origen"
 
-#: prefs.js:95
+#: prefs.js:94
 #, fuzzy
 #| msgid "Target language"
 msgid "Target Language"
 msgstr "Idioma destino"
 
-#: prefs.js:96 schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:86
-msgid "The language into which the text should be translated"
-msgstr "Idioma al cual quieres traducir"
-
-#: prefs.js:112
-#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:100
-msgid "Formality"
-msgstr "Formal"
-
-#: prefs.js:113
-#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:101
-msgid ""
-"Sets whether the translated text should lean towards formal or informal "
-"language"
-msgstr "Define si se tiene que utilizar un lenguaje mas o menos formal"
-
-#: prefs.js:127
+#: prefs.js:95
 #, fuzzy
-#| msgid "Translate Assistant Configuration"
-msgid "DeepL Translation API Configuration"
-msgstr "Configuración del Asistente de Traducción"
+#| msgid "Target language"
+msgid "Default target language"
+msgstr "Idioma destino"
 
-#: prefs.js:133
-#, fuzzy
-#| msgid "DeepL API key"
-msgid "DeepL API URL"
-msgstr "La clave API de DeepL"
+#: prefs.js:109
+msgid "DeepL"
+msgstr ""
 
-#: prefs.js:140
+#: prefs.js:110
+msgid "API key and advanced options. Only used when DeepL is selected."
+msgstr ""
+
+#: prefs.js:116
 #, fuzzy
 #| msgid "DeepL API key"
 msgid "API Key"
 msgstr "La clave API de DeepL"
 
-#: prefs.js:148
-#, fuzzy
-#| msgid "Auto Options"
-msgid "Formatting Options"
-msgstr "Opciones automáticas"
+#: prefs.js:124
+msgid "Advanced"
+msgstr ""
 
-#: prefs.js:153
+#: prefs.js:125
+msgid "URL, formality and formatting"
+msgstr ""
+
+#: prefs.js:131
+#, fuzzy
+#| msgid "DeepL API key"
+msgid "API URL"
+msgstr "La clave API de DeepL"
+
+#: prefs.js:140
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:100
+msgid "Formality"
+msgstr "Formal"
+
+#: prefs.js:141
+msgid "Prefer formal or informal wording"
+msgstr ""
+
+#: prefs.js:154
 #, fuzzy
 #| msgid "Split sentences"
 msgid "Split Sentences"
 msgstr "Dividir frases"
 
-#: prefs.js:154
-msgid "Split the input text into sentences before translating"
+#: prefs.js:155
+msgid "Split input into sentences before translating"
 msgstr ""
 
-#: prefs.js:160
+#: prefs.js:161
 #, fuzzy
 #| msgid "Preserve formatting"
 msgid "Preserve Formatting"
 msgstr "Mantener el formato"
 
-#: prefs.js:161
-msgid "Respect original formatting details"
+#: prefs.js:162
+msgid "Keep capitalization, spacing and newlines"
 msgstr ""
 
 #: prefs.js:169
-msgid "Behavior"
+msgid "Panel Popup"
 msgstr ""
+
+#: prefs.js:170
+msgid "What happens when the top-bar popup opens."
+msgstr ""
+
+#: prefs.js:175
+msgid "Auto Paste"
+msgstr "Pegado automático"
 
 #: prefs.js:176
+msgid "Fill input with clipboard when popup opens"
+msgstr ""
+
+#: prefs.js:183 prefs.js:382
 #, fuzzy
-#| msgid "Auto Options"
-msgid "Automatic Actions"
-msgstr "Opciones automáticas"
+#| msgid "Translated"
+msgid "Translate while typing"
+msgstr "Traducido"
 
-#: prefs.js:182
-msgid "Paste clipboard content automatically into the input field"
-msgstr ""
-
-#: prefs.js:189 prefs.js:380
-msgid "Translate automatically when input is populated"
-msgstr ""
-
-#: prefs.js:196
+#: prefs.js:189
 #, fuzzy
-#| msgid "Copy automatically the content of the output box in the clipboard"
-msgid "Copy translations automatically to the clipboard"
-msgstr ""
-"Copiar automáticamente el contenido del cuadro de salida en el portapapeles"
+#| msgid "Auto Copy"
+msgid "Auto Copy Result"
+msgstr "Copia automática"
 
-#: prefs.js:202
-msgid "Auto Copy (Floating) to clipboard"
+#: prefs.js:190
+#, fuzzy
+#| msgid "Shortcut to translate the content of the clipboard"
+msgid "Copy panel result to clipboard"
+msgstr "Atajo de teclado para traducir el contenido del portapapeles"
+
+#: prefs.js:197
+msgid "Double Ctrl+C"
+msgstr ""
+
+#: prefs.js:198
+msgid "Copy the same text twice to translate it instantly."
 msgstr ""
 
 #: prefs.js:203
-msgid "Copy floating translation results automatically to the clipboard"
+msgid "Enable Gesture"
 msgstr ""
 
-#: prefs.js:209
-msgid "Double-copy Background Mode"
+#: prefs.js:204
+msgid ""
+"Translate when the same text is copied twice quickly. Turn off if popups "
+"appear unwantedly."
 msgstr ""
 
 #: prefs.js:210
-#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:146
-msgid ""
-"Translate in background on double-copy instead of showing the floating window"
+msgid "Auto Copy Popup Result"
 msgstr ""
 
-#: prefs.js:216
-#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:150
+#: prefs.js:211
 #, fuzzy
-#| msgid "Show notifications on translation"
-msgid "Show Notification in Background Mode"
-msgstr "Mostrar notificaciones cuando se realiza una traducción"
+#| msgid "Shortcut to translate the content of the clipboard"
+msgid "Copy popup result to clipboard"
+msgstr "Atajo de teclado para traducir el contenido del portapapeles"
 
 #: prefs.js:217
-#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:151
-#, fuzzy
-#| msgid "Show notifications on translation"
-msgid "Display a notification when background translation finishes"
-msgstr "Mostrar notificaciones cuando se realiza una traducción"
-
-#: prefs.js:227
-msgid "System & Style"
+msgid "Run in Background"
 msgstr ""
 
-#: prefs.js:234
-msgid "Style & Integration"
+#: prefs.js:218
+msgid "Translate without showing the popup. The result is always copied."
 msgstr ""
 
-#: prefs.js:239
+#: prefs.js:224
 #, fuzzy
 #| msgid "Show notifications"
-msgid "Show Notifications"
+msgid "Background Notification"
 msgstr "Mostrar notificaciones"
 
-#: prefs.js:240
+#: prefs.js:225
 #, fuzzy
 #| msgid "Show notifications on translation"
-msgid "Show system notifications upon translation completions"
+msgid "Show the result in a notification when running in background"
 msgstr "Mostrar notificaciones cuando se realiza una traducción"
 
-#: prefs.js:246
-#, fuzzy
-#| msgid "Dark theme"
-msgid "Dark Theme Indicator"
-msgstr "Tema oscuro"
-
-#: prefs.js:247
-msgid "Use dark theme panel icons (disable for light theme icons)"
+#: prefs.js:244
+msgid "System"
 msgstr ""
 
-#: prefs.js:254
+#: prefs.js:249
+#, fuzzy
+#| msgid "Show notifications"
+msgid "Panel Notification"
+msgstr "Mostrar notificaciones"
+
+#: prefs.js:250
+#, fuzzy
+#| msgid "Show notifications on translation"
+msgid "Also show a notification when a panel translation finishes"
+msgstr "Mostrar notificaciones cuando se realiza una traducción"
+
+#: prefs.js:256
+msgid "Dark Panel Icons"
+msgstr ""
+
+#: prefs.js:257
+msgid "Use light icons suited for a dark top bar"
+msgstr ""
+
+#: prefs.js:263
 #, fuzzy
 #| msgid "Shortcut"
-msgid "Keyboard Shortcuts"
+msgid "Clipboard Shortcut"
 msgstr "Atajo de teclado"
 
-#: prefs.js:259
-msgid "Clipboard Translation Shortcut"
-msgstr ""
-
-#: prefs.js:260
+#: prefs.js:264
 msgid ""
-"Click and press key combination to set shortcut. Escape/Backspace to clear"
+"Translate clipboard instantly. Focus this row, press keys to set, Esc to "
+"clear."
 msgstr ""
 
-#: prefs.js:274
+#: prefs.js:278
 msgid "None"
 msgstr ""
 
-#: prefs.js:308
+#: prefs.js:312
 msgid "About"
 msgstr "Acerca de"
 
-#: prefs.js:314
+#: prefs.js:318
 msgid "Extension Details"
 msgstr ""
 
-#: prefs.js:319
+#: prefs.js:323
 msgid "Version"
 msgstr "Versión"
 
-#: prefs.js:325
+#: prefs.js:329
 msgid "Author"
 msgstr ""
 
-#: prefs.js:331
+#: prefs.js:335
 msgid "Description"
 msgstr ""
 
-#: prefs.js:338
-msgid "Links & Support"
+#: prefs.js:342
+msgid "Links and Support"
 msgstr ""
 
-#: prefs.js:343
+#: prefs.js:347
 msgid "Project Homepage"
 msgstr ""
 
-#: prefs.js:358
+#: prefs.js:362
 msgid "Buy me a coffee"
 msgstr "Apoya con un café"
 
-#: prefs.js:382
-msgid ""
-"Translate automatically when input is populated. Warning: Your IP address "
-"may get banned for API abuse."
+#: prefs.js:384
+msgid "Translate while typing. May be rate-limited."
 msgstr ""
 
 #: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:75
@@ -401,9 +418,17 @@ msgstr ""
 msgid "Source language"
 msgstr "Idioma origen"
 
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:81
+msgid "Language of the text to be translated"
+msgstr "Idioma del cual quieres traducir"
+
 #: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:85
 msgid "Target language"
 msgstr "Idioma destino"
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:86
+msgid "The language into which the text should be translated"
+msgstr "Idioma al cual quieres traducir"
 
 #: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:90
 msgid "Split sentences"
@@ -427,6 +452,12 @@ msgid ""
 msgstr ""
 "Establece si el motor de traducción debería respetar el formato original, "
 "incluso si se corrigen algunos aspectos"
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:101
+msgid ""
+"Sets whether the translated text should lean towards formal or informal "
+"language"
+msgstr "Define si se tiene que utilizar un lenguaje mas o menos formal"
 
 #: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:105
 msgid "Url"
@@ -506,17 +537,82 @@ msgstr ""
 msgid "Background Mode"
 msgstr ""
 
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:146
+msgid ""
+"Translate in background on double-copy instead of showing the floating window"
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:150
+#, fuzzy
+#| msgid "Show notifications on translation"
+msgid "Show Notification in Background Mode"
+msgstr "Mostrar notificaciones cuando se realiza una traducción"
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:151
+#, fuzzy
+#| msgid "Show notifications on translation"
+msgid "Display a notification when background translation finishes"
+msgstr "Mostrar notificaciones cuando se realiza una traducción"
+
 #: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:155
+msgid "Enable Double-Copy Gesture"
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:156
+msgid ""
+"Trigger instant translation when the same text is copied twice in quick "
+"succession (Ctrl+C Ctrl+C). Turn off if translation windows appear "
+"unwantedly."
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:160
 msgid "Auto translate"
 msgstr "Traducción automática"
 
-#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:156
+#: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml:161
 msgid ""
 "Translate automatically the content of the input box and the set the result "
 "in the output box"
 msgstr ""
 "Traduce automáticamente el contenido de la casilla de entrada y el resultado "
 "se muestra en la casilla de salida"
+
+#, fuzzy
+#~| msgid "Settings"
+#~ msgid "Language Settings"
+#~ msgstr "Configuración"
+
+#, fuzzy
+#~| msgid "Translate Assistant Configuration"
+#~ msgid "DeepL Translation API Configuration"
+#~ msgstr "Configuración del Asistente de Traducción"
+
+#, fuzzy
+#~| msgid "Auto Options"
+#~ msgid "Formatting Options"
+#~ msgstr "Opciones automáticas"
+
+#, fuzzy
+#~| msgid "Auto Options"
+#~ msgid "Automatic Actions"
+#~ msgstr "Opciones automáticas"
+
+#, fuzzy
+#~| msgid "Copy automatically the content of the output box in the clipboard"
+#~ msgid "Copy translations automatically to the clipboard"
+#~ msgstr ""
+#~ "Copiar automáticamente el contenido del cuadro de salida en el "
+#~ "portapapeles"
+
+#, fuzzy
+#~| msgid "Show notifications on translation"
+#~ msgid "Show system notifications upon translation completions"
+#~ msgstr "Mostrar notificaciones cuando se realiza una traducción"
+
+#, fuzzy
+#~| msgid "Dark theme"
+#~ msgid "Dark Theme Indicator"
+#~ msgstr "Tema oscuro"
 
 #~ msgid "Ok"
 #~ msgstr "Aceptar"
@@ -562,9 +658,6 @@ msgstr ""
 
 #~ msgid "Report an issue"
 #~ msgstr "Informa de un error..."
-
-#~ msgid "Auto Paste"
-#~ msgstr "Pegado automático"
 
 #~ msgid "Set API Key of DeepL"
 #~ msgstr "Introduce la clave API de DeepL"

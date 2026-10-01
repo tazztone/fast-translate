@@ -27,7 +27,6 @@ import Adw from "gi://Adw";
 import Gio from "gi://Gio";
 import Gdk from "gi://Gdk?version=4.0";
 import GLib from "gi://GLib";
-import GObject from "gi://GObject";
 import { ExtensionPreferences, gettext as _ } from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
 export default class FastTranslatePreferences extends ExtensionPreferences {
@@ -46,9 +45,9 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         });
         window.add(preferencesPage);
 
-        // Group 1: Language Settings
+        // Group 1: General
         const langGroup = new Adw.PreferencesGroup({
-            title: _('Language Settings'),
+            title: _('General'),
         });
         preferencesPage.add(langGroup);
 
@@ -57,7 +56,7 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         const serviceEnums = serviceKey.get_range().deep_unpack()[1].deep_unpack();
         const serviceRow = new Adw.ComboRow({
             title: _('Translation Service'),
-            subtitle: _('Choose between Google Translate (unlimited) and DeepL (requires API key)'),
+            subtitle: _('Google needs no key. DeepL needs an API key.'),
             model: Gtk.StringList.new(serviceEnums),
         });
         serviceRow.selected = settings.get_enum('translation-service');
@@ -76,7 +75,7 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         const sourceEnums = sourceKey.get_range().deep_unpack()[1].deep_unpack();
         const sourceLangRow = new Adw.ComboRow({
             title: _('Source Language'),
-            subtitle: _('Default source language for new translations'),
+            subtitle: _('Default source language'),
             model: Gtk.StringList.new(sourceEnums),
         });
         sourceLangRow.selected = settings.get_enum('source-lang');
@@ -93,7 +92,7 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         const targetEnums = targetKey.get_range().deep_unpack()[1].deep_unpack();
         const targetLangRow = new Adw.ComboRow({
             title: _('Target Language'),
-            subtitle: _('Default target language for new translations'),
+            subtitle: _('Default target language'),
             model: Gtk.StringList.new(targetEnums),
         });
         targetLangRow.selected = settings.get_enum('target-lang');
@@ -105,36 +104,12 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         });
         langGroup.add(targetLangRow);
 
-        // Formality Combo
-        const formalityKey = settings.settings_schema.get_key('formality');
-        const formalityEnums = formalityKey.get_range().deep_unpack()[1].deep_unpack();
-        const formalityRow = new Adw.ComboRow({
-            title: _('Formality'),
-            subtitle: _('Lean towards formal or informal language structure (DeepL only)'),
-            model: Gtk.StringList.new(formalityEnums),
-        });
-        formalityRow.selected = settings.get_enum('formality');
-        formalityRow.connect('notify::selected', () => {
-            settings.set_enum('formality', formalityRow.selected);
-        });
-        settings.connect('changed::formality', () => {
-            formalityRow.selected = settings.get_enum('formality');
-        });
-        langGroup.add(formalityRow);
-
-        // Group 2: API Configuration
+        // Group 2: DeepL (API key + advanced options, DeepL only)
         const apiGroup = new Adw.PreferencesGroup({
-            title: _('DeepL Translation API Configuration'),
-            description: _('Configure the DeepL API endpoint URL and your private authentication key'),
+            title: _('DeepL'),
+            description: _('API key and advanced options. Only used when DeepL is selected.'),
         });
         preferencesPage.add(apiGroup);
-
-        // URL Entry
-        const urlRow = new Adw.EntryRow({
-            title: _('DeepL API URL'),
-        });
-        settings.bind('url', urlRow, 'text', Gio.SettingsBindFlags.DEFAULT);
-        apiGroup.add(urlRow);
 
         // API Key Entry
         const apikeyRow = new Adw.EntryRow({
@@ -144,83 +119,110 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         settings.bind('apikey', apikeyRow, 'text', Gio.SettingsBindFlags.DEFAULT);
         apiGroup.add(apikeyRow);
 
-        // Group 3: Formatting Options
-        const formattingGroup = new Adw.PreferencesGroup({
-            title: _('Formatting Options'),
+        // Advanced expander: endpoint + niche DeepL flags most users never touch
+        const advancedExpander = new Adw.ExpanderRow({
+            title: _('Advanced'),
+            subtitle: _('URL, formality and formatting'),
         });
-        preferencesPage.add(formattingGroup);
+        apiGroup.add(advancedExpander);
+
+        // URL Entry
+        const urlRow = new Adw.EntryRow({
+            title: _('API URL'),
+        });
+        settings.bind('url', urlRow, 'text', Gio.SettingsBindFlags.DEFAULT);
+        advancedExpander.add_row(urlRow);
+
+        // Formality Combo (DeepL only, lives here instead of General)
+        const formalityKey = settings.settings_schema.get_key('formality');
+        const formalityEnums = formalityKey.get_range().deep_unpack()[1].deep_unpack();
+        const formalityRow = new Adw.ComboRow({
+            title: _('Formality'),
+            subtitle: _('Prefer formal or informal wording'),
+            model: Gtk.StringList.new(formalityEnums),
+        });
+        formalityRow.selected = settings.get_enum('formality');
+        formalityRow.connect('notify::selected', () => {
+            settings.set_enum('formality', formalityRow.selected);
+        });
+        settings.connect('changed::formality', () => {
+            formalityRow.selected = settings.get_enum('formality');
+        });
+        advancedExpander.add_row(formalityRow);
 
         const splitRow = new Adw.SwitchRow({
             title: _('Split Sentences'),
-            subtitle: _('Split the input text into sentences to improve translation context and quality'),
+            subtitle: _('Split input into sentences before translating'),
         });
         settings.bind('split-sentences', splitRow, 'active', Gio.SettingsBindFlags.DEFAULT);
-        formattingGroup.add(splitRow);
+        advancedExpander.add_row(splitRow);
 
         const preserveRow = new Adw.SwitchRow({
             title: _('Preserve Formatting'),
-            subtitle: _('Retain original formatting details like capitalization, spacing, and newlines'),
+            subtitle: _('Keep capitalization, spacing and newlines'),
         });
         settings.bind('preserve-formatting', preserveRow, 'active', Gio.SettingsBindFlags.DEFAULT);
-        formattingGroup.add(preserveRow);
+        advancedExpander.add_row(preserveRow);
 
-        // Group 4: Panel Menu Automation
+        // Group 3: Panel Popup
         const autoGroup = new Adw.PreferencesGroup({
-            title: _('Panel Menu Automation'),
+            title: _('Panel Popup'),
+            description: _('What happens when the top-bar popup opens.'),
         });
         preferencesPage.add(autoGroup);
 
         const autoPasteRow = new Adw.SwitchRow({
-            title: _('Auto Paste from clipboard'),
-            subtitle: _('Automatically paste clipboard contents into the input box when the panel popup opens'),
+            title: _('Auto Paste'),
+            subtitle: _('Fill input with clipboard when popup opens'),
         });
         settings.bind('auto-paste', autoPasteRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         autoGroup.add(autoPasteRow);
 
         const autoTranslateRow = new Adw.SwitchRow({
             title: _('Auto Translate'),
-            subtitle: _('Translate automatically while typing in the input box'),
+            subtitle: _('Translate while typing'),
         });
         settings.bind('auto-translate', autoTranslateRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         autoGroup.add(autoTranslateRow);
 
         const autoCopyRow = new Adw.SwitchRow({
-            title: _('Auto Copy to clipboard'),
-            subtitle: _('Automatically copy translation results to the clipboard when translation completes'),
+            title: _('Auto Copy Result'),
+            subtitle: _('Copy panel result to clipboard'),
         });
         settings.bind('auto-copy', autoCopyRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         autoGroup.add(autoCopyRow);
 
-        // Group 5: Double-Copy Instant Translation
+        // Group 4: Double Ctrl+C
         const doubleCopyGroup = new Adw.PreferencesGroup({
-            title: _('Double-Copy Instant Translation'),
+            title: _('Double Ctrl+C'),
+            description: _('Copy the same text twice to translate it instantly.'),
         });
         preferencesPage.add(doubleCopyGroup);
 
         const doubleCopyEnabledRow = new Adw.SwitchRow({
-            title: _('Enable Double-Copy Gesture'),
-            subtitle: _('Trigger instant translation when the same text is copied twice quickly (Ctrl+C Ctrl+C). Turn off if translation windows appear unwantedly'),
+            title: _('Enable Gesture'),
+            subtitle: _('Translate when the same text is copied twice quickly. Turn off if popups appear unwantedly.'),
         });
         settings.bind('double-copy-enabled', doubleCopyEnabledRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         doubleCopyGroup.add(doubleCopyEnabledRow);
 
         const floatingAutoCopyRow = new Adw.SwitchRow({
-            title: _('Auto Copy (Floating)'),
-            subtitle: _('Automatically copy the translated text to the clipboard when using the floating window'),
+            title: _('Auto Copy Popup Result'),
+            subtitle: _('Copy popup result to clipboard'),
         });
         settings.bind('floating-auto-copy', floatingAutoCopyRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         doubleCopyGroup.add(floatingAutoCopyRow);
 
         const backgroundModeRow = new Adw.SwitchRow({
-            title: _('Double-copy Background Mode'),
-            subtitle: _('Translate silently in the background on double-copy (Ctrl+C Ctrl+C) without showing the floating UI'),
+            title: _('Run in Background'),
+            subtitle: _('Translate without showing the popup. The result is always copied.'),
         });
         settings.bind('floating-background-mode', backgroundModeRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         doubleCopyGroup.add(backgroundModeRow);
 
         const backgroundToastRow = new Adw.SwitchRow({
-            title: _('Show Notification in Background Mode'),
-            subtitle: _('Show a desktop notification with the translation result when running in background mode'),
+            title: _('Background Notification'),
+            subtitle: _('Show the result in a notification when running in background'),
         });
         settings.bind('floating-background-toast', backgroundToastRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         doubleCopyGroup.add(backgroundToastRow);
@@ -237,29 +239,29 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         backgroundModeRow.connect('notify::active', syncDoubleCopySensitive);
         syncDoubleCopySensitive();
 
-        // Group 6: System and Shortcuts Integration
+        // Group 5: System
         const systemGroup = new Adw.PreferencesGroup({
-            title: _('System and Shortcuts Integration'),
+            title: _('System'),
         });
         preferencesPage.add(systemGroup);
 
         const notificationsRow = new Adw.SwitchRow({
-            title: _('Show Notifications'),
-            subtitle: _('Show a system notification when a panel translation completes'),
+            title: _('Panel Notification'),
+            subtitle: _('Also show a notification when a panel translation finishes'),
         });
         settings.bind('notifications', notificationsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         systemGroup.add(notificationsRow);
 
         const darkthemeRow = new Adw.SwitchRow({
-            title: _('Dark Theme Indicator'),
-            subtitle: _('Use dark theme friendly status icons in the top panel'),
+            title: _('Dark Panel Icons'),
+            subtitle: _('Use light icons suited for a dark top bar'),
         });
         settings.bind('darktheme', darkthemeRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         systemGroup.add(darkthemeRow);
 
         const shortcutRow = new Adw.ActionRow({
-            title: _('Clipboard Translation Shortcut'),
-            subtitle: _('Key combination to instantly translate clipboard contents (opens panel menu with result)'),
+            title: _('Clipboard Shortcut'),
+            subtitle: _('Translate clipboard instantly. Focus this row, press keys to set, Esc to clear.'),
         });
         const shortcutLabel = new Gtk.Label({
             valign: Gtk.Align.CENTER,
@@ -282,18 +284,18 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         shortcutRow.add_controller(controller);
         controller.connect('key-pressed', (controller, keyval, keycode, state) => {
             const mask = state & Gtk.accelerator_get_default_mod_mask();
-            
+
             if (keyval === Gdk.KEY_Escape || keyval === Gdk.KEY_BackSpace) {
                 settings.set_strv('keybinding-translate-clipboard', []);
                 updateShortcutLabel();
                 return true;
             }
-            
+
             // We only accept shortcuts with modifiers (e.g. Ctrl, Super, Alt) or function keys
             if (mask === 0 && (keyval < Gdk.KEY_F1 || keyval > Gdk.KEY_F12)) {
                 return false;
             }
-            
+
             const accelName = Gtk.accelerator_name(keyval, mask);
             if (accelName) {
                 settings.set_strv('keybinding-translate-clipboard', [accelName]);
@@ -375,13 +377,11 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         function updateServiceVisibility() {
             const isDeepL = (settings.get_enum('translation-service') === 0);
             apiGroup.visible = isDeepL;
-            formattingGroup.visible = isDeepL;
-            formalityRow.visible = isDeepL;
 
             if (isDeepL) {
-                autoTranslateRow.subtitle = _('Translate automatically while typing in the input box');
+                autoTranslateRow.subtitle = _('Translate while typing');
             } else {
-                autoTranslateRow.subtitle = _('Translate automatically while typing in the input box. Warning: Your IP address may get banned for API abuse.');
+                autoTranslateRow.subtitle = _('Translate while typing. May be rate-limited.');
             }
         }
         updateServiceVisibility();
