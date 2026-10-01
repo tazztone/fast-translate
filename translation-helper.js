@@ -10,7 +10,7 @@
  */
 export function parseCountryCode(description) {
     if (!description) return null;
-    const regex = /^[^(]*\(([^)]*)\)$/gm;
+    const regex = /^[^(]*\(([^)]*)\)$/;
     let m = regex.exec(description);
     if (m && m.length > 1) {
         return m[1];

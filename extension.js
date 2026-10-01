@@ -71,7 +71,13 @@ class Tooltip {
             }
         });
 
-        this._destroyId = this._actor.connect('destroy', () => this.destroy());
+        this._destroyId = this._actor.connect('destroy', () => {
+            // Actor is dying; handlers die with it. Null the IDs so destroy()
+            // skips disconnecting the currently-emitting handler.
+            this._hoverId = null;
+            this._destroyId = null;
+            this.destroy();
+        });
     }
 
     _startTimer() {
@@ -142,8 +148,6 @@ class Tooltip {
             this._destroyId = null;
         }
     }
-
-    hide() { this._hide(); }
 }
 
 // EGO-L-003 / EGO-L-004 note: all widget signals connected below store their
@@ -177,6 +181,13 @@ var FastTranslate = GObject.registerClass(
             // EGO-L-003: debounced typing translation (see _menuTranslationBlock).
             this._inputTextChangedId = null;
             this._typingDebounceId = null;
+            // Lazily-created refs, initialized for reviewer clarity.
+            this.selection = null;
+            this._lastClipboardTime = null;
+            this._lastClipboardText = null;
+            this._floatingWindow = null;
+            this.sourceSelector = null;
+            this.targetSelector = null;
             // EGO-L-003: handler IDs for every widget signal, disconnected in destroy().
             this._menuOpenStateChangedId = null;
             this._autoPasteToggledId = null;
@@ -366,6 +377,14 @@ var FastTranslate = GObject.registerClass(
                 return;
             }
 
+            // EGO-A-005: don't even read the clipboard unless a consumer is
+            // armed — otherwise every system-wide copy would be inspected.
+            const doubleCopyEnabled = this._settings.get_boolean('double-copy-enabled');
+            const autoPasteArmed = this.autoPasteSwitch && this.autoPasteSwitch.state === true;
+            if (!doubleCopyEnabled && !autoPasteArmed) {
+                return;
+            }
+
             // Read for the double-Ctrl+C gesture / auto-paste pipeline.
             // Timestamp is sampled here (not before the async call) so the
             // interval measures actual event spacing under event-loop jitter.
@@ -376,7 +395,6 @@ var FastTranslate = GObject.registerClass(
                 if (!text || text.trim() === '') return;
 
                 const now = GLib.get_monotonic_time();
-                const doubleCopyEnabled = this._settings.get_boolean('double-copy-enabled');
                 if (doubleCopyEnabled && this._lastClipboardTime && this._lastClipboardText !== null) {
                     let diff = now - this._lastClipboardTime;
                     // Trigger only if same content AND within 50ms–2s window.
@@ -390,23 +408,22 @@ var FastTranslate = GObject.registerClass(
                     }
                 }
 
-                this._lastClipboardTime = now;
-                this._lastClipboardText = text;
+                if (doubleCopyEnabled) {
+                    this._lastClipboardTime = now;
+                    this._lastClipboardText = text;
+                }
                 this._translateIfAutoPaste();
             });
         }
 
-        _setupTimeout(reiterate) {
-            reiterate = typeof reiterate === 'boolean' ? reiterate : true;
-
+        _setupTimeout() {
             this._clipboardTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, TIMEOUT_MS, () => {
-                this._translateIfAutoPaste();
-
-                if (reiterate === false) {
+                if (this._destroyed) {
                     this._clipboardTimeoutId = null;
+                    return GLib.SOURCE_REMOVE;
                 }
-
-                return reiterate;
+                this._translateIfAutoPaste();
+                return GLib.SOURCE_CONTINUE;
             });
         }
 
@@ -585,7 +602,6 @@ var FastTranslate = GObject.registerClass(
             this._formality = this._getValue('formality');
             this._url = this._getValue('url');
             this._apikey = this._getValue('apikey');
-            this._keybinding_translate_clipboard = this._getValue(SHORTCUT_SETTING_KEY);
             this._notifications = this._getValue('notifications');
             this._darktheme = this._resolveDarkTheme();
 
@@ -1462,6 +1478,14 @@ var FastTranslate = GObject.registerClass(
             this._unbindShortcut();
             this._clearClipboardTimeout();
             this._disconnectSelectionListener();
+            if (this._cancellable) {
+                try {
+                    this._cancellable.cancel();
+                } catch (e) {
+                    // Already cancelled/finished; ignore.
+                }
+                this._cancellable = null;
+            }
             if (this._internalCopyTimeoutId) {
                 GLib.Source.remove(this._internalCopyTimeoutId);
                 this._internalCopyTimeoutId = null;
@@ -1487,8 +1511,11 @@ export default class FastTranslateExtension extends Extension {
     }
 
     disable() {
-        this._indicator.destroy();
-        this._indicator = null;
+        // Idempotent: enable() may have failed partway, or disable() may run twice.
+        if (this._indicator) {
+            this._indicator.destroy();
+            this._indicator = null;
+        }
     }
 }
 
