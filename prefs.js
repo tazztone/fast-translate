@@ -213,7 +213,7 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
             upper: 5000,
             step_increment: 100,
             page_increment: 500,
-            value: 2000,
+            value: 500,
         });
         const delayRow = new Adw.SpinRow({
             title: _('Detection Window'),

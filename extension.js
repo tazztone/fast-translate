@@ -57,7 +57,7 @@ const TIMEOUT_MS = 500;
 // Double-copy gesture timing. MIN filters event-loop duplicate owner-changed
 // signals; the max window is user-configurable via double-copy-delay (ms).
 const DOUBLE_COPY_MIN_US = 50 * 1000;
-const DOUBLE_COPY_DELAY_FALLBACK_MS = 2000;
+const DOUBLE_COPY_DELAY_FALLBACK_MS = 500;
 const DOUBLE_COPY_DELAY_MIN_MS = 300;
 const DOUBLE_COPY_DELAY_MAX_MS = 5000;
 
@@ -374,7 +374,7 @@ var FastTranslate = GObject.registerClass(
 
         _getDoubleCopyWindowUs() {
             // Live-read so dconf/prefs changes apply without reload.
-            // Falls back to the historic 2000ms when the key is missing
+            // Falls back to 500ms when the key is missing
             // (e.g. old compiled schema still installed).
             let ms = DOUBLE_COPY_DELAY_FALLBACK_MS;
             try {

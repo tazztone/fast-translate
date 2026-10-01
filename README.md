@@ -77,7 +77,7 @@ Once enabled, the extension icon appears in the GNOME top bar. Click it to open 
 
 ### Double-copy clipboard translation
 
-Copy any text normally, then press `Ctrl+C` a second time within the detection window (default 2000 ms, adjustable 300–5000 ms in preferences). Depending on your preferences:
+Copy any text normally, then press `Ctrl+C` a second time within the detection window (default 500 ms, adjustable 300–5000 ms in preferences). Depending on your preferences:
 
 - **Default mode**: A floating window appears with the translated result — no focus stealing, no screen dimming.
 - **Background mode**: The translation runs silently in the background and automatically updates your clipboard, allowing you to instantly paste (`Ctrl+V`) the translated text without distraction. An optional desktop toast notification is shown on completion.
