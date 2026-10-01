@@ -150,6 +150,11 @@
             <summary>Show Notification in Background Mode</summary>
             <description>Display a notification when background translation finishes</description>
          </key>
+         <key name="double-copy-enabled" type="b">
+            <default>true</default>
+            <summary>Enable Double-Copy Gesture</summary>
+            <description>Trigger instant translation when the same text is copied twice in quick succession (Ctrl+C Ctrl+C). Turn off if translation windows appear unwantedly.</description>
+         </key>
          <key name="auto-translate" type="b">
             <default>false</default>
             <summary>Auto translate</summary>

@@ -197,6 +197,13 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         });
         preferencesPage.add(doubleCopyGroup);
 
+        const doubleCopyEnabledRow = new Adw.SwitchRow({
+            title: _('Enable Double-Copy Gesture'),
+            subtitle: _('Trigger instant translation when the same text is copied twice quickly (Ctrl+C Ctrl+C). Turn off if translation windows appear unwantedly'),
+        });
+        settings.bind('double-copy-enabled', doubleCopyEnabledRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        doubleCopyGroup.add(doubleCopyEnabledRow);
+
         const floatingAutoCopyRow = new Adw.SwitchRow({
             title: _('Auto Copy (Floating)'),
             subtitle: _('Automatically copy the translated text to the clipboard when using the floating window'),

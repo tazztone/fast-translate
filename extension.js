@@ -346,16 +346,18 @@ var FastTranslate = GObject.registerClass(
                 return;
             }
 
-            let now = GLib.get_monotonic_time();
-
             // Read for the double-Ctrl+C gesture / auto-paste pipeline.
+            // Timestamp is sampled here (not before the async call) so the
+            // interval measures actual event spacing under event-loop jitter.
             getClipboard().get_text(CLIPBOARD_TYPE, (_, text) => {
                 if (this._destroyed) {
                     return;
                 }
                 if (!text || text.trim() === '') return;
 
-                if (this._lastClipboardTime && this._lastClipboardText !== null) {
+                const now = GLib.get_monotonic_time();
+                const doubleCopyEnabled = this._settings.get_boolean('double-copy-enabled');
+                if (doubleCopyEnabled && this._lastClipboardTime && this._lastClipboardText !== null) {
                     let diff = now - this._lastClipboardTime;
                     // Trigger only if same content AND within 50ms–2s window.
                     // Identical content means the user pressed Ctrl+C on the same selection.
