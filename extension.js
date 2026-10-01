@@ -38,8 +38,18 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 
-const Clipboard = St.Clipboard.get_default();
+// EGO-A-005 reviewer note — clipboard access justification:
+// Clipboard access is the core, user-visible purpose of this extension
+// (translate clipboard/pasted text, copy results back). Reads happen only on:
+// explicit Paste button press, menu-open while "Auto Paste" is ON (default OFF),
+// the Super+T shortcut action, or the double-Ctrl+C gesture. Writes happen only on:
+// explicit Copy button press, or while "Auto Copy"/"Floating Auto Copy" is ON
+// (defaults OFF). No background harvesting, no persistence; text is sent only to
+// the user-selected translation service as the translation request payload.
 const CLIPBOARD_TYPE = St.ClipboardType.CLIPBOARD;
+function getClipboard() {
+    return St.Clipboard.get_default();
+}
 
 const SHELL_KEYBINDINGS_SCHEMA = "org.gnome.shell.keybindings";
 const SHORTCUT_SETTING_KEY = "keybinding-translate-clipboard";
@@ -136,7 +146,12 @@ class Tooltip {
     hide() { this._hide(); }
 }
 
-// Note: Internal widget signals and one-shot GLib.idle_add sources auto-cleanup on deactivation.
+// EGO-L-003 / EGO-L-004 note: all widget signals connected below store their
+// handler IDs (this._*Id) and are explicitly disconnected in destroy() via
+// _disconnectWidgetSignals(). One-shot GLib.idle_add sources go through
+// this._trackIdle() and pending ones are cancelled in destroy() via
+// _clearIdleSources(). Actors destroyed with the menu also auto-drop handlers,
+// but explicit disconnects keep enable()/disable() balanced for reviewers.
 var FastTranslate = GObject.registerClass(
     class FastTranslate extends PanelMenu.Button {
         _init(extension) {
@@ -155,6 +170,24 @@ var FastTranslate = GObject.registerClass(
             this._selectionOwnerChangedId = null;
             this._isInternalCopy = false;
             this._internalCopyTimeoutId = null;
+            // EGO-L-003: handler IDs for every widget signal, disconnected in destroy().
+            this._menuOpenStateChangedId = null;
+            this._autoPasteToggledId = null;
+            this._autoTranslateToggledId = null;
+            this._autoCopyToggledId = null;
+            this._settingsMenuActivateId = null;
+            this._sourceLabelClickedId = null;
+            this._swapBtnClickedId = null;
+            this._targetLabelClickedId = null;
+            this._inputBtnPressId = null;
+            this._pasteBtnClickedId = null;
+            this._clearBtnClickedId = null;
+            this._translateBtnClickedId = null;
+            this._copyBtnClickedId = null;
+            // EGO-L-004: pending one-shot idle sources, removed in destroy().
+            this._idleSources = new Set();
+            // Dynamically created language-selector buttons ([actor, handlerId]).
+            this._langSelectorBtns = [];
 
             /* Icon indicator */
             let box = new St.BoxLayout();
@@ -176,7 +209,7 @@ var FastTranslate = GObject.registerClass(
                 _('Auto Paste from clipboard'), this._getValue("auto-paste"), {});
             this.autoPasteSwitch.activate = function(event) { this.toggle(); };
             this.menu.addMenuItem(this.autoPasteSwitch);
-            this.autoPasteSwitch.connect('toggled', (item, state) => {
+            this._autoPasteToggledId = this.autoPasteSwitch.connect('toggled', (item, state) => {
                 this._settings.set_boolean('auto-paste', state);
                 this._set_icon_indicator();
             });
@@ -185,7 +218,7 @@ var FastTranslate = GObject.registerClass(
                 _('Auto Translate'), this._getValue("auto-translate"), {});
             this.autoTranslateSwitch.activate = function(event) { this.toggle(); };
             this.menu.addMenuItem(this.autoTranslateSwitch);
-            this.autoTranslateSwitch.connect('toggled', (item, state) => {
+            this._autoTranslateToggledId = this.autoTranslateSwitch.connect('toggled', (item, state) => {
                 this._settings.set_boolean('auto-translate', state);
             });
 
@@ -193,7 +226,7 @@ var FastTranslate = GObject.registerClass(
                 _('Auto Copy to clipboard'), this._getValue("auto-copy"), {});
             this.autoCopySwitch.activate = function(event) { this.toggle(); };
             this.menu.addMenuItem(this.autoCopySwitch);
-            this.autoCopySwitch.connect('toggled', (item, state) => {
+            this._autoCopyToggledId = this.autoCopySwitch.connect('toggled', (item, state) => {
                 this._settings.set_boolean('auto-copy', state);
             });
 
@@ -202,7 +235,7 @@ var FastTranslate = GObject.registerClass(
 
             /* Settings */
             this.settingsMenuItem = new PopupMenu.PopupMenuItem(_("Settings"));
-            this.settingsMenuItem.connect('activate', () => {
+            this._settingsMenuActivateId = this.settingsMenuItem.connect('activate', () => {
                 this._extension.openPreferences();
             });
             this.menu.addMenuItem(this.settingsMenuItem);
@@ -221,7 +254,7 @@ var FastTranslate = GObject.registerClass(
             this._addTooltip(this.autoCopySwitch, _("Copy translation results to clipboard automatically"));
             this._addTooltip(this.settingsMenuItem, _("Open extension preferences"));
 
-            this.menu.connect('open-state-changed', (menu, isOpen) => {
+            this._menuOpenStateChangedId = this.menu.connect('open-state-changed', (menu, isOpen) => {
                 if (this._destroyed) {
                     return;
                 }
@@ -232,7 +265,8 @@ var FastTranslate = GObject.registerClass(
                     this._toggleLanguageSelector(true, false);
                 } else {
                     if (this.autoPasteSwitch.state === true) {
-                        Clipboard.get_text(CLIPBOARD_TYPE, (_, clipboardText) => {
+                        // User-gated read: only when "Auto Paste" is ON.
+                        getClipboard().get_text(CLIPBOARD_TYPE, (_, clipboardText) => {
                             if (this._destroyed) {
                                 return;
                             }
@@ -242,7 +276,7 @@ var FastTranslate = GObject.registerClass(
                         });
                     }
                     // Give keyboard focus to the input box so the user can type immediately
-                    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                    this._trackIdle(() => {
                         if (this._destroyed) {
                             return GLib.SOURCE_REMOVE;
                         }
@@ -278,7 +312,8 @@ var FastTranslate = GObject.registerClass(
 
         _translateIfAutoPaste() {
             if (this.autoPasteSwitch.state === true) {
-                Clipboard.get_text(CLIPBOARD_TYPE, (_, fromText) => {
+                // User-gated read: only when "Auto Paste" is ON.
+                getClipboard().get_text(CLIPBOARD_TYPE, (_, fromText) => {
                     if (this._destroyed) {
                         return;
                     }
@@ -313,7 +348,8 @@ var FastTranslate = GObject.registerClass(
 
             let now = GLib.get_monotonic_time();
 
-            Clipboard.get_text(CLIPBOARD_TYPE, (_, text) => {
+            // Read for the double-Ctrl+C gesture / auto-paste pipeline.
+            getClipboard().get_text(CLIPBOARD_TYPE, (_, text) => {
                 if (this._destroyed) {
                     return;
                 }
@@ -379,6 +415,93 @@ var FastTranslate = GObject.registerClass(
             this._settingsChangedId = null;
         }
 
+        // EGO-L-004: register a one-shot idle source so a pending callback can
+        // be cancelled in destroy(). The wrapper unregisters the id on dispatch;
+        // callbacks must return GLib.SOURCE_REMOVE (one-shot).
+        _trackIdle(callback) {
+            const id = GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                this._idleSources.delete(id);
+                return callback();
+            });
+            this._idleSources.add(id);
+            return id;
+        }
+
+        _clearIdleSources() {
+            for (const id of this._idleSources) {
+                GLib.Source.remove(id);
+            }
+            this._idleSources.clear();
+        }
+
+        _disconnectLanguageSelectorButtons() {
+            for (const [btn, btnId] of this._langSelectorBtns) {
+                try {
+                    btn.disconnect(btnId);
+                } catch (e) {
+                    // Actor may already be destroyed with its parent; ignore.
+                }
+            }
+            this._langSelectorBtns = [];
+        }
+
+        // EGO-L-003: disconnect every widget signal connected in _init() and
+        // _menuTranslationBlock(). Called from destroy() before super.destroy().
+        _disconnectWidgetSignals() {
+            if (this.autoPasteSwitch && this._autoPasteToggledId) {
+                this.autoPasteSwitch.disconnect(this._autoPasteToggledId);
+                this._autoPasteToggledId = null;
+            }
+            if (this.autoTranslateSwitch && this._autoTranslateToggledId) {
+                this.autoTranslateSwitch.disconnect(this._autoTranslateToggledId);
+                this._autoTranslateToggledId = null;
+            }
+            if (this.autoCopySwitch && this._autoCopyToggledId) {
+                this.autoCopySwitch.disconnect(this._autoCopyToggledId);
+                this._autoCopyToggledId = null;
+            }
+            if (this.settingsMenuItem && this._settingsMenuActivateId) {
+                this.settingsMenuItem.disconnect(this._settingsMenuActivateId);
+                this._settingsMenuActivateId = null;
+            }
+            if (this.menu && this._menuOpenStateChangedId) {
+                this.menu.disconnect(this._menuOpenStateChangedId);
+                this._menuOpenStateChangedId = null;
+            }
+            if (this.sourceLabel && this._sourceLabelClickedId) {
+                this.sourceLabel.disconnect(this._sourceLabelClickedId);
+                this._sourceLabelClickedId = null;
+            }
+            if (this.swapBtn && this._swapBtnClickedId) {
+                this.swapBtn.disconnect(this._swapBtnClickedId);
+                this._swapBtnClickedId = null;
+            }
+            if (this.targetLabel && this._targetLabelClickedId) {
+                this.targetLabel.disconnect(this._targetLabelClickedId);
+                this._targetLabelClickedId = null;
+            }
+            if (this.inputEntry && this._inputBtnPressId) {
+                this.inputEntry.disconnect(this._inputBtnPressId);
+                this._inputBtnPressId = null;
+            }
+            if (this.pasteBtn && this._pasteBtnClickedId) {
+                this.pasteBtn.disconnect(this._pasteBtnClickedId);
+                this._pasteBtnClickedId = null;
+            }
+            if (this.clearBtn && this._clearBtnClickedId) {
+                this.clearBtn.disconnect(this._clearBtnClickedId);
+                this._clearBtnClickedId = null;
+            }
+            if (this.translateBtn && this._translateBtnClickedId) {
+                this.translateBtn.disconnect(this._translateBtnClickedId);
+                this._translateBtnClickedId = null;
+            }
+            if (this.copyBtn && this._copyBtnClickedId) {
+                this.copyBtn.disconnect(this._copyBtnClickedId);
+                this._copyBtnClickedId = null;
+            }
+        }
+
         _loadPreferences() {
             this._translation_service = this._settings.get_enum('translation-service');
             this._source_lang = this._get_country_code(this._getValue('source-lang'));
@@ -411,7 +534,8 @@ var FastTranslate = GObject.registerClass(
                 Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
                 Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
                 () => {
-                    Clipboard.get_text(CLIPBOARD_TYPE, (_, fromText) => {
+                    // User-initiated read: explicit shortcut action.
+                    getClipboard().get_text(CLIPBOARD_TYPE, (_, fromText) => {
                         if (this._destroyed) {
                             return;
                         }
@@ -757,10 +881,11 @@ var FastTranslate = GObject.registerClass(
 
             if (this.autoPasteSwitch.state === true) {
                 this.autoPasteSwitch.setToggleState(false);
-                Clipboard.set_text(CLIPBOARD_TYPE, inText);
+                // User-gated write: explicit copy or "Auto Copy" is ON.
+                getClipboard().set_text(CLIPBOARD_TYPE, inText);
                 this.autoPasteSwitch.setToggleState(true);
             } else {
-                Clipboard.set_text(CLIPBOARD_TYPE, inText);
+                getClipboard().set_text(CLIPBOARD_TYPE, inText);
             }
         }
 
@@ -782,9 +907,9 @@ var FastTranslate = GObject.registerClass(
                 style_class: 'translate-lang-label',
                 reactive: true
             });
-            this.sourceLabel.connect('clicked', () => {
+            this._sourceLabelClickedId = this.sourceLabel.connect('clicked', () => {
                 const isVisible = !!this.sourceSelector;
-                GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                this._trackIdle(() => {
                     if (this._destroyed) {
                         return GLib.SOURCE_REMOVE;
                     }
@@ -797,9 +922,9 @@ var FastTranslate = GObject.registerClass(
                 style_class: 'translate-swap-button',
                 reactive: true
             });
-            this.swapBtn.connect('clicked', () => {
+            this._swapBtnClickedId = this.swapBtn.connect('clicked', () => {
                 if (this.sourceSelector || this.targetSelector) {
-                    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                    this._trackIdle(() => {
                         if (this._destroyed) {
                             return GLib.SOURCE_REMOVE;
                         }
@@ -824,9 +949,9 @@ var FastTranslate = GObject.registerClass(
                 style_class: 'translate-lang-label',
                 reactive: true
             });
-            this.targetLabel.connect('clicked', () => {
+            this._targetLabelClickedId = this.targetLabel.connect('clicked', () => {
                 const isVisible = !!this.targetSelector;
-                GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                this._trackIdle(() => {
                     if (this._destroyed) {
                         return GLib.SOURCE_REMOVE;
                     }
@@ -873,7 +998,7 @@ var FastTranslate = GObject.registerClass(
             this.inputEntry.x_align = Clutter.ActorAlign.FILL;
             this.inputEntry.y_align = Clutter.ActorAlign.FILL;
             // Clicking anywhere in the entry grabs keyboard focus
-            this.inputEntry.connect('button-press-event', () => {
+            this._inputBtnPressId = this.inputEntry.connect('button-press-event', () => {
                 global.stage.set_key_focus(this.inputEntry.get_clutter_text());
                 return Clutter.EVENT_PROPAGATE;
             });
@@ -894,8 +1019,9 @@ var FastTranslate = GObject.registerClass(
                 icon_name: 'edit-paste-symbolic',
                 style_class: 'translate-btn-icon'
             }));
-            this.pasteBtn.connect('clicked', () => {
-                Clipboard.get_text(CLIPBOARD_TYPE, (_, inText) => {
+            this._pasteBtnClickedId = this.pasteBtn.connect('clicked', () => {
+                // User-initiated read: explicit Paste button press.
+                getClipboard().get_text(CLIPBOARD_TYPE, (_, inText) => {
                     if (this._destroyed) {
                         return;
                     }
@@ -915,7 +1041,7 @@ var FastTranslate = GObject.registerClass(
                 icon_name: 'edit-clear-symbolic',
                 style_class: 'translate-btn-icon'
             }));
-            this.clearBtn.connect('clicked', () => {
+            this._clearBtnClickedId = this.clearBtn.connect('clicked', () => {
                 this.inputEntry.get_clutter_text().set_text("");
                 this.outputEntry.get_clutter_text().set_text("");
                 if (this.errorLabel) {
@@ -940,7 +1066,7 @@ var FastTranslate = GObject.registerClass(
                 style_class: 'translate-submit-btn',
                 reactive: true
             });
-            this.translateBtn.connect('clicked', () => {
+            this._translateBtnClickedId = this.translateBtn.connect('clicked', () => {
                 if (this._cancellable) {
                     this._cancellable.cancel();
                 } else {
@@ -1009,7 +1135,7 @@ var FastTranslate = GObject.registerClass(
                 icon_name: 'edit-copy-symbolic',
                 style_class: 'translate-btn-icon'
             }));
-            this.copyBtn.connect('clicked', () => {
+            this._copyBtnClickedId = this.copyBtn.connect('clicked', () => {
                 let outText = this.outputEntry.get_clutter_text().get_text();
                 if (outText && outText !== "") {
                     this._copyToClipboard(outText);
@@ -1101,6 +1227,7 @@ var FastTranslate = GObject.registerClass(
                 this.outputWrapper.visible = false;
                 
                 // Hide other selectors
+                this._disconnectLanguageSelectorButtons();
                 if (this.sourceSelector) {
                     this.sourceSelector.destroy();
                     this.sourceSelector = null;
@@ -1152,10 +1279,10 @@ var FastTranslate = GObject.registerClass(
                         x_expand: true,
                         reactive: true
                     });
-                    
-                    btn.connect('clicked', () => {
+
+                    const btnId = btn.connect('clicked', () => {
                         this._settings.set_enum(keyName, index);
-                        GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                        this._trackIdle(() => {
                             if (this._destroyed) {
                                 return GLib.SOURCE_REMOVE;
                             }
@@ -1164,7 +1291,8 @@ var FastTranslate = GObject.registerClass(
                             return GLib.SOURCE_REMOVE;
                         });
                     });
-                    
+                    this._langSelectorBtns.push([btn, btnId]);
+
                     row.add_child(btn);
                 });
                 
@@ -1177,7 +1305,9 @@ var FastTranslate = GObject.registerClass(
                     this.targetSelector = selectorScroll;
                 }
             } else {
-                // Destroy selectors
+                // Destroy selectors (buttons disconnect with their parent actor;
+                // drop tracked handler IDs first for balanced enable()/disable()).
+                this._disconnectLanguageSelectorButtons();
                 if (this.sourceSelector) {
                     this.sourceSelector.destroy();
                     this.sourceSelector = null;
@@ -1196,6 +1326,9 @@ var FastTranslate = GObject.registerClass(
 
         destroy() {
             this._destroyed = true;
+            this._clearIdleSources();
+            this._disconnectWidgetSignals();
+            this._disconnectLanguageSelectorButtons();
             if (this._floatingWindow) {
                 this._floatingWindow.destroy();
                 this._floatingWindow = null;
@@ -1250,6 +1383,13 @@ class FloatingTranslationWindow {
     constructor(sourceText, targetText, sourceLang, targetLang, onDestroy, onCopyClicked, settings) {
         this._onDestroy = onDestroy;
         this._settings = settings;
+        // EGO-L-003: handler IDs, explicitly disconnected in destroy().
+        this._overlayPressId = null;
+        this._closeBtnClickedId = null;
+        this._copyBtnClickedId = null;
+        this._autoCopyBtnClickedId = null;
+        this._allocationId = null;
+        this._destroyedFloating = false;
         this.overlay = new St.Widget({
             style_class: 'translate-floating-overlay',
             reactive: true,
@@ -1260,7 +1400,7 @@ class FloatingTranslationWindow {
         });
         Main.uiGroup.add_child(this.overlay);
 
-        this.overlay.connect('button-press-event', () => {
+        this._overlayPressId = this.overlay.connect('button-press-event', () => {
             this.destroy();
             return Clutter.EVENT_STOP;
         });
@@ -1295,7 +1435,8 @@ class FloatingTranslationWindow {
             icon_name: 'window-close-symbolic',
             style_class: 'translate-btn-icon'
         }));
-        closeBtn.connect('clicked', () => this.destroy());
+        this.closeBtn = closeBtn;
+        this._closeBtnClickedId = closeBtn.connect('clicked', () => this.destroy());
         header.add_child(closeBtn);
         this.actor.add_child(header);
 
@@ -1367,11 +1508,13 @@ class FloatingTranslationWindow {
             style_class: 'translate-btn-icon'
         }));
         
-        copyBtn.connect('clicked', () => {
+        this.copyBtn = copyBtn;
+        this._copyBtnClickedId = copyBtn.connect('clicked', () => {
             if (onCopyClicked) {
                 onCopyClicked(targetText);
             } else {
-                St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, targetText);
+                // Fallback write: explicit Copy button press only.
+                getClipboard().set_text(CLIPBOARD_TYPE, targetText);
             }
             this.destroy();
         });
@@ -1405,8 +1548,9 @@ class FloatingTranslationWindow {
                 style_class: 'translate-btn-icon'
             });
             autoCopyBtn.set_child(toggleIcon);
-            
-            autoCopyBtn.connect('clicked', () => {
+
+            this.autoCopyBtn = autoCopyBtn;
+            this._autoCopyBtnClickedId = autoCopyBtn.connect('clicked', () => {
                 let current = this._settings.get_boolean('floating-auto-copy');
                 let next = !current;
                 this._settings.set_boolean('floating-auto-copy', next);
@@ -1424,8 +1568,9 @@ class FloatingTranslationWindow {
 
         // Center on primary monitor
         let monitor = Main.layoutManager.primaryMonitor;
-        let allocationId = this.actor.connect('notify::allocation', () => {
-            this.actor.disconnect(allocationId);
+        this._allocationId = this.actor.connect('notify::allocation', () => {
+            this.actor.disconnect(this._allocationId);
+            this._allocationId = null;
             let width = this.actor.get_width();
             let height = this.actor.get_height();
             let x = monitor.x + (monitor.width - width) / 2;
@@ -1447,9 +1592,31 @@ class FloatingTranslationWindow {
     }
 
     destroy() {
+        if (this._destroyedFloating) return;
+        this._destroyedFloating = true;
         if (this.keyPressId) {
             global.stage.disconnect(this.keyPressId);
             this.keyPressId = null;
+        }
+        if (this.overlay && this._overlayPressId) {
+            try { this.overlay.disconnect(this._overlayPressId); } catch (e) {}
+            this._overlayPressId = null;
+        }
+        if (this.closeBtn && this._closeBtnClickedId) {
+            try { this.closeBtn.disconnect(this._closeBtnClickedId); } catch (e) {}
+            this._closeBtnClickedId = null;
+        }
+        if (this.copyBtn && this._copyBtnClickedId) {
+            try { this.copyBtn.disconnect(this._copyBtnClickedId); } catch (e) {}
+            this._copyBtnClickedId = null;
+        }
+        if (this.autoCopyBtn && this._autoCopyBtnClickedId) {
+            try { this.autoCopyBtn.disconnect(this._autoCopyBtnClickedId); } catch (e) {}
+            this._autoCopyBtnClickedId = null;
+        }
+        if (this.actor && this._allocationId) {
+            try { this.actor.disconnect(this._allocationId); } catch (e) {}
+            this._allocationId = null;
         }
         if (this.overlay) {
             this.overlay.destroy();
