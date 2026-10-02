@@ -8,3 +8,4 @@ scratch/
 venv
 .venv
 test/mock-prefs-runner.js
+tmp/

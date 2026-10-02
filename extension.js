@@ -51,7 +51,6 @@ function getClipboard() {
     return St.Clipboard.get_default();
 }
 
-const SHELL_KEYBINDINGS_SCHEMA = "org.gnome.shell.keybindings";
 const SHORTCUT_SETTING_KEY = "keybinding-translate-clipboard";
 const TIMEOUT_MS = 500;
 // Double-copy gesture timing. MIN filters event-loop duplicate owner-changed
@@ -482,8 +481,7 @@ var FastTranslate = GObject.registerClass(
         }
 
         // Auto dark icons: follow the system color-scheme instead of a manual
-        // toggle (the top bar follows the system theme). The 'darktheme'
-        // schema key is left unused for backward compatibility.
+        // toggle (the top bar follows the system theme).
         _resolveDarkTheme() {
             if (this._interfaceSettings) {
                 try {
