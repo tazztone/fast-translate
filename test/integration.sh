@@ -18,7 +18,7 @@ JS_CODE=$(cat test/eval-test.js)
 export JS_CODE
 QUERY_CODE="global.testRunnerResult || JSON.stringify({ success: false, error: 'Asynchronous test run timed out or failed to resolve' })"
 export QUERY_CODE
-LOG_FILE=$(mktemp /tmp/fast-translate-integration-XXXXXX.log)
+LOG_FILE=$(mktemp "${TMPDIR:-/tmp}/fast-translate-integration-XXXXXX.log")
 export LOG_FILE
 
 # Session-service spam (dbus-daemon, evolution, portals, DING, GSConnect, ...)
