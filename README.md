@@ -39,7 +39,7 @@ lastcommit-badge: True
 
 - **Panel menu translator** — a clean popover accessible from the GNOME top bar lets you type or paste text and translate it instantly.
 - **Inline language selector** — switch source and target languages directly inside the popup using a flag-emoji grid, no settings window needed.
-- **Double-copy translation** — press the copy shortcut (`Ctrl+C` `Ctrl+C`) twice in rapid succession to trigger instant translation. Choose between displaying the result in a floating window, or running silently in the background to auto-copy the translation directly to your clipboard for immediate pasting (`Ctrl+V`).
+- **Double-copy translation** — copy the same text twice in rapid succession (e.g. `Ctrl+C` `Ctrl+C` or context menu Copy) to trigger instant translation. Choose between displaying the result in a floating window, or running silently in the background to auto-copy the translation directly to your clipboard for immediate pasting (`Ctrl+V`).
 - **Configurable shortcut** — the clipboard-translate keybinding can be customised in the extension preferences.
 - **Multiple Backends** — choose between Google Translate (works instantly out-of-the-box, no key required) and DeepL (Free & Pro tiers).
 
@@ -80,7 +80,7 @@ Once enabled, the extension icon appears in the GNOME top bar. Click it to open 
 
 ### Double-copy clipboard translation
 
-Copy any text normally, then press `Ctrl+C` a second time within the detection window (default 500 ms, adjustable 300–5000 ms in preferences). Depending on your preferences:
+Copy any text normally, then copy it a second time within the detection window (default 500 ms, adjustable 300–5000 ms in preferences; works via `Ctrl+C` twice, context menu Copy, or any copy action). Depending on your preferences:
 
 - **Default mode**: A floating window appears with the translated result — no focus stealing, no screen dimming.
 - **Background mode**: The translation runs silently in the background and automatically updates your clipboard, allowing you to instantly paste (`Ctrl+V`) the translated text without distraction. An optional desktop toast notification is shown on completion.

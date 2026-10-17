@@ -192,10 +192,10 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
         settings.bind('auto-copy', autoCopyRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         autoGroup.add(autoCopyRow);
 
-        // Group 4: Double Ctrl+C
+        // Group 4: Double-Copy Gesture
         const doubleCopyGroup = new Adw.PreferencesGroup({
-            title: _('Double Ctrl+C'),
-            description: _('Copy the same text twice to translate it instantly.'),
+            title: _('Double-Copy Gesture'),
+            description: _('Copy the same text twice quickly (e.g. Ctrl+C Ctrl+C or context menu Copy) to translate it instantly.'),
         });
         preferencesPage.add(doubleCopyGroup);
 
