@@ -428,6 +428,7 @@ global.testRunnerPromise = (async () => {
 
         try {
             // Reset state so startup events don't bleed into this test
+            indicator._lastEventArrivalUs = null;
             indicator._lastClipboardTime = null;
             indicator._lastClipboardText = null;
             if (indicator._internalCopyTimeoutId) {
@@ -460,8 +461,10 @@ global.testRunnerPromise = (async () => {
                 return { success: false, error: "Floating window was created on a single copy!" };
             }
 
-            // Simulate spurious duplicate signal <50ms — same content, must NOT trigger
+            // Simulate spurious duplicate signal (10ms and 100ms later) — same content, must NOT trigger
             mockTime = 1010000;
+            indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null);
+            mockTime = 1100000;
             indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null);
 
             if (independentTranslationCallback) {
@@ -469,11 +472,11 @@ global.testRunnerPromise = (async () => {
                 Clipboard.get_text = originalClipboardGetText;
                 Clipboard.set_text = originalClipboardSetText;
                 indicator._translateTextIndependent = originalTranslateTextIndependent;
-                return { success: false, error: "Spurious duplicate (<50ms) triggered translation!" };
+                return { success: false, error: "Spurious duplicate signal (<180ms) triggered translation!" };
             }
 
-            // Second intentional copy — same content, 200ms later — must trigger
-            mockTime = 1200000;
+            // Second intentional copy — same content, 250ms after first — must trigger
+            mockTime = 1250000;
             indicator._onSelectionChange(null, Meta.SelectionType.SELECTION_CLIPBOARD, null);
 
             // Verify that _translateTextIndependent was triggered
