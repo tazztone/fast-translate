@@ -55,7 +55,7 @@ const SHORTCUT_SETTING_KEY = "keybinding-translate-clipboard";
 const TIMEOUT_MS = 500;
 // Double-copy gesture timing. MIN filters event-loop duplicate owner-changed
 // signals; the max window is user-configurable via double-copy-delay (ms).
-const DOUBLE_COPY_MIN_US = 50 * 1000;
+const DOUBLE_COPY_MIN_US = 180 * 1000;
 const DOUBLE_COPY_DELAY_FALLBACK_MS = 500;
 const DOUBLE_COPY_DELAY_MIN_MS = 300;
 const DOUBLE_COPY_DELAY_MAX_MS = 5000;
@@ -194,6 +194,7 @@ var FastTranslate = GObject.registerClass(
             this._typingDebounceId = null;
             // Lazily-created refs.
             this.selection = null;
+            this._lastEventArrivalUs = null;
             this._lastClipboardTime = null;
             this._lastClipboardText = null;
             this._floatingWindow = null;
@@ -340,8 +341,6 @@ var FastTranslate = GObject.registerClass(
             if (metaDisplay && typeof metaDisplay.get_selection === 'function') {
                 const selection = metaDisplay.get_selection();
                 this._setupSelectionTracking(selection);
-            } else {
-                this._setupTimeout();
             }
         }
 
@@ -350,31 +349,6 @@ var FastTranslate = GObject.registerClass(
             this._selectionOwnerChangedId = selection.connect('owner-changed', (selection, selectionType, selectionSource) => {
                 this._onSelectionChange(selection, selectionType, selectionSource);
             });
-        }
-
-        _translateIfAutoPaste() {
-            if (this.autoPasteSwitch.state === true) {
-                // User-gated read: only when "Auto Paste" is ON.
-                getClipboard().get_text(CLIPBOARD_TYPE, (_, fromText) => {
-                    if (this._destroyed) {
-                        return;
-                    }
-                    if (fromText && fromText !== "") {
-                        this.inputEntry.get_clutter_text().set_text(fromText);
-                        if (this.autoTranslateSwitch.state === true) {
-                            this._translateText(true, fromText, (toText) => {
-                                if (this._destroyed) {
-                                    return;
-                                }
-                                this.outputEntry.get_clutter_text().set_text(toText);
-                                if (this.autoCopySwitch.state === true) {
-                                    this._copyToClipboard(toText);
-                                }
-                            });
-                        }
-                    }
-                });
-            }
         }
 
         _getDoubleCopyWindowUs() {
@@ -403,53 +377,40 @@ var FastTranslate = GObject.registerClass(
                 return;
             }
 
-            // Don't even read the clipboard unless a consumer is armed —
-            // otherwise every system-wide copy would be inspected.
+            // Don't inspect clipboard unless double-copy gesture is enabled.
             const doubleCopyEnabled = this._settings.get_boolean('double-copy-enabled');
-            const autoPasteArmed = this.autoPasteSwitch && this.autoPasteSwitch.state === true;
-            if (!doubleCopyEnabled && !autoPasteArmed) {
+            if (!doubleCopyEnabled) {
                 return;
             }
 
-            // Read for the double-Ctrl+C gesture / auto-paste pipeline.
-            // Timestamp is sampled here (not before the async call) so the
-            // interval measures actual event spacing under event-loop jitter.
+            const eventArrivalUs = GLib.get_monotonic_time();
+            // Suppress rapid signal echoes (< 180ms) from XWayland / GTK target negotiation.
+            if (this._lastEventArrivalUs && (eventArrivalUs - this._lastEventArrivalUs) < DOUBLE_COPY_MIN_US) {
+                return;
+            }
+            this._lastEventArrivalUs = eventArrivalUs;
+
             getClipboard().get_text(CLIPBOARD_TYPE, (_, text) => {
                 if (this._destroyed) {
                     return;
                 }
                 if (!text || text.trim() === '') return;
 
-                const now = GLib.get_monotonic_time();
-                if (doubleCopyEnabled && this._lastClipboardTime && this._lastClipboardText !== null) {
-                    let diff = now - this._lastClipboardTime;
+                if (this._lastClipboardTime && this._lastClipboardText !== null) {
+                    let diff = eventArrivalUs - this._lastClipboardTime;
                     // Trigger only if same content AND within the detection window.
-                    // Identical content means the user pressed Ctrl+C on the same selection.
-                    // Clipboard managers (e.g. GSConnect) always change the content slightly,
-                    // so they won't accidentally trigger the floating window.
+                    // Identical content means the user copied the same selection twice.
                     if (diff >= DOUBLE_COPY_MIN_US && diff < this._getDoubleCopyWindowUs() && text === this._lastClipboardText) {
-                        this._lastClipboardText = null; // consume — triple-C won't re-trigger
+                        this._lastClipboardText = null; // consume — triple-copy won't re-trigger
+                        this._lastClipboardTime = null;
+                        this._lastEventArrivalUs = null;
                         this._triggerFloatingTranslation(text);
                         return;
                     }
                 }
 
-                if (doubleCopyEnabled) {
-                    this._lastClipboardTime = now;
-                    this._lastClipboardText = text;
-                }
-                this._translateIfAutoPaste();
-            });
-        }
-
-        _setupTimeout() {
-            this._clipboardTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, TIMEOUT_MS, () => {
-                if (this._destroyed) {
-                    this._clipboardTimeoutId = null;
-                    return GLib.SOURCE_REMOVE;
-                }
-                this._translateIfAutoPaste();
-                return GLib.SOURCE_CONTINUE;
+                this._lastClipboardTime = eventArrivalUs;
+                this._lastClipboardText = text;
             });
         }
 
