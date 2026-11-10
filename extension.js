@@ -1621,6 +1621,8 @@ class FloatingTranslationWindow {
             style_class: 'translate-floating-text-src'
         });
         srcLabel.get_clutter_text().set_line_wrap(true);
+        srcLabel.get_clutter_text().set_single_line_mode(false);
+        srcLabel.get_clutter_text().set_ellipsize(Pango.EllipsizeMode.NONE);
         srcLabel.get_clutter_text().set_line_wrap_mode(Pango.WrapMode.WORD_CHAR);
         srcBox.add_child(srcLabel);
         srcScroll.add_child(srcBox);
@@ -1648,6 +1650,8 @@ class FloatingTranslationWindow {
             style_class: 'translate-floating-text-dest'
         });
         destLabel.get_clutter_text().set_line_wrap(true);
+        destLabel.get_clutter_text().set_single_line_mode(false);
+        destLabel.get_clutter_text().set_ellipsize(Pango.EllipsizeMode.NONE);
         destLabel.get_clutter_text().set_line_wrap_mode(Pango.WrapMode.WORD_CHAR);
         destBox.add_child(destLabel);
         destScroll.add_child(destBox);
@@ -1725,8 +1729,51 @@ class FloatingTranslationWindow {
 
         this.actor.add_child(actions);
 
-        // Center on primary monitor
-        let monitor = Main.layoutManager.primaryMonitor;
+        // Compact adaptive translation popup
+        const [pointerX, pointerY] = global.get_pointer();
+        const popupMonitor = Main.layoutManager.monitors.find(monitor =>
+            pointerX >= monitor.x && pointerX < monitor.x + monitor.width &&
+            pointerY >= monitor.y && pointerY < monitor.y + monitor.height
+        ) ?? Main.layoutManager.primaryMonitor;
+        // Measure styled text rather than guessing from character counts.
+        const naturalWidth = Math.max(
+            srcLabel.get_preferred_width(-1)[1],
+            destLabel.get_preferred_width(-1)[1],
+            header.get_preferred_width(-1)[1],
+            actions.get_preferred_width(-1)[1]
+        );
+        const contentWidth = Math.min(
+            Math.max(280, Math.min(460, naturalWidth + 16)),
+            Math.max(1, popupMonitor.width - 64)
+        );
+        this.actor.set_style(`width: ${contentWidth}px;`);
+
+        for (const [label, scroll, maxHeight] of [
+            [srcLabel, srcScroll, 110],
+            [destLabel, destScroll, Math.min(300, popupMonitor.height * 0.35)]
+        ]) {
+            scroll.x_expand = true;
+            scroll.y_expand = false;
+            label.get_parent().y_expand = false;
+            label.set_width(contentWidth - 16);
+            label.x_expand = true;
+            label.y_expand = false;
+            const textActor = label.get_clutter_text();
+            textActor.set_single_line_mode(false);
+            textActor.set_line_wrap(true);
+            textActor.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR);
+            textActor.set_ellipsize(Pango.EllipsizeMode.NONE);
+            const [, naturalHeight] = label.get_preferred_height(contentWidth - 16);
+            scroll.set_height(Math.min(maxHeight, naturalHeight + 8));
+        }
+
+        closeBtn.get_child().set_style('icon-size: 16px;');
+        copyBtn.get_child().set_style('icon-size: 16px;');
+        if (this.autoCopyBtn)
+            this.autoCopyBtn.get_child().set_style('icon-size: 16px;');
+
+        // Center on the monitor where the translation was requested.
+        let monitor = popupMonitor;
         this._allocationId = this.actor.connect('notify::allocation', () => {
             this.actor.disconnect(this._allocationId);
             this._allocationId = null;
