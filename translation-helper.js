@@ -109,3 +109,26 @@ export function parseLanguageName(description) {
 }
 
 
+
+// XKB layouts whose base level has no Latin letters. Mutter's virtual keyboard
+// resolves keyvals only in the current layout group, so under these layouts a
+// synthetic keyval "c" cannot be typed and Ctrl+C must be sent by physical key.
+const NON_LATIN_XKB_LAYOUTS = new Set([
+    'af', 'am', 'ara', 'bd', 'bg', 'bt', 'by', 'eg', 'et', 'ge', 'gr', 'il',
+    'in', 'iq', 'ir', 'kg', 'kh', 'kz', 'la', 'lk', 'ma', 'mk', 'mm', 'mn',
+    'mv', 'np', 'pk', 'rs', 'ru', 'sy', 'th', 'tj', 'ua',
+]);
+
+/**
+ * Whether the given XKB input source id (e.g. "ru", "ua+phonetic",
+ * "rs+latin") is a non-Latin layout that cannot produce the keyval "c".
+ * @param {string} xkbId - Input source XKB id ("layout" or "layout+variant")
+ * @returns {boolean} True when Ctrl+C must be sent by physical keycode
+ */
+export function isNonLatinXkbLayout(xkbId) {
+    if (!xkbId) return false;
+    const [layout, variant = ''] = String(xkbId).toLowerCase().split('+');
+    if (variant.includes('latin')) return false;
+    if (layout === 'us' && variant === 'rus') return true;
+    return NON_LATIN_XKB_LAYOUTS.has(layout);
+}

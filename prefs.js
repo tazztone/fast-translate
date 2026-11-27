@@ -28,6 +28,45 @@ import Gio from "gi://Gio";
 import Gdk from "gi://Gdk?version=4.0";
 import { ExtensionPreferences, gettext as _ } from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
+// US QWERTY base-level characters by evdev keycode, used when the keymap
+// exposes no Latin group for the pressed key (e.g. only "ru" is loaded).
+const EVDEV_QWERTY = {
+    2: '1', 3: '2', 4: '3', 5: '4', 6: '5', 7: '6', 8: '7', 9: '8', 10: '9', 11: '0',
+    16: 'q', 17: 'w', 18: 'e', 19: 'r', 20: 't', 21: 'y', 22: 'u', 23: 'i', 24: 'o', 25: 'p',
+    30: 'a', 31: 's', 32: 'd', 33: 'f', 34: 'g', 35: 'h', 36: 'j', 37: 'k', 38: 'l',
+    44: 'z', 45: 'x', 46: 'c', 47: 'v', 48: 'b', 49: 'n', 50: 'm',
+};
+const XKB_EVDEV_OFFSET = 8;
+
+function isAsciiKeyval(keyval) {
+    return keyval >= 0x21 && keyval <= 0x7e;
+}
+
+/**
+ * Returns a Latin keyval for the pressed physical key. When the active layout
+ * is non-Latin (Cyrillic, Greek, ...), the recorded keyval (e.g. Cyrillic_u)
+ * would never fire under the Latin layout, so resolve the same physical key
+ * in another layout group, falling back to its US QWERTY letter.
+ */
+function latinKeyvalFor(controller, keyval, keycode) {
+    if (keyval <= 0xff) {
+        return keyval;
+    }
+    try {
+        const display = controller.get_widget()?.get_display() ?? Gdk.Display.get_default();
+        for (let group = 0; group < 4; group++) {
+            const [ok, groupKeyval] = display.translate_key(keycode, 0, group);
+            if (ok && isAsciiKeyval(groupKeyval)) {
+                return Gdk.keyval_to_lower(groupKeyval);
+            }
+        }
+    } catch (e) {
+        console.error(`Fast Translate: keycode lookup failed: ${e.message || e}`);
+    }
+    const qwerty = EVDEV_QWERTY[keycode - XKB_EVDEV_OFFSET];
+    return qwerty ? Gdk.unicode_to_keyval(qwerty.charCodeAt(0)) : keyval;
+}
+
 export default class FastTranslatePreferences extends ExtensionPreferences {
     constructor(metadata) {
         super(metadata);
@@ -280,7 +319,10 @@ export default class FastTranslatePreferences extends ExtensionPreferences {
                 return false;
             }
 
-            const accelName = Gtk.accelerator_name(keyval, mask);
+            // Recording under a non-Latin layout (e.g. Russian) yields keyvals
+            // like Cyrillic_u that never fire in the Latin layout. Store the
+            // Latin keyval of the same physical key, as GNOME Settings does.
+            const accelName = Gtk.accelerator_name(latinKeyvalFor(controller, keyval, keycode), mask);
             if (accelName) {
                 settings.set_strv('keybinding-translate-clipboard', [accelName]);
                 updateShortcutLabel();

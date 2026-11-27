@@ -1,5 +1,5 @@
 import assert from "assert";
-import { parseCountryCode, buildRequestQuery, getFlagEmoji, formatLanguageLabel, parseLanguageName } from "../translation-helper.js";
+import { parseCountryCode, buildRequestQuery, getFlagEmoji, formatLanguageLabel, parseLanguageName, isNonLatinXkbLayout } from "../translation-helper.js";
 
 // ==========================================
 // 1. parseCountryCode Tests
@@ -61,6 +61,23 @@ assert.strictEqual(parseLanguageName("NoParens"), "NoParens", "Should return str
 assert.strictEqual(parseLanguageName(null), "", "Null should return empty string");
 
 console.log("✅ getFlagEmoji and formatLanguageLabel tests passed successfully!\n");
+
+// ==========================================
+// isNonLatinXkbLayout Tests
+// ==========================================
+console.log("⏳ Running isNonLatinXkbLayout tests...");
+
+assert.strictEqual(isNonLatinXkbLayout("ru"), true, "ru is Cyrillic");
+assert.strictEqual(isNonLatinXkbLayout("ua+phonetic"), true, "ua variants stay Cyrillic");
+assert.strictEqual(isNonLatinXkbLayout("us+rus"), true, "us+rus is Russian phonetic");
+assert.strictEqual(isNonLatinXkbLayout("gr"), true, "gr is Greek");
+assert.strictEqual(isNonLatinXkbLayout("rs+latin"), false, "rs+latin is Latin");
+assert.strictEqual(isNonLatinXkbLayout("de"), false, "de is Latin");
+assert.strictEqual(isNonLatinXkbLayout("us+dvorak"), false, "Dvorak is Latin");
+assert.strictEqual(isNonLatinXkbLayout(""), false, "Empty id is treated as Latin");
+assert.strictEqual(isNonLatinXkbLayout(null), false, "Null id is treated as Latin");
+
+console.log("✅ isNonLatinXkbLayout tests passed successfully!\n");
 
 console.log("🎉 All unit tests passed successfully!");
 
