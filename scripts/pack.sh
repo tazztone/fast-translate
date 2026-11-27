@@ -10,7 +10,7 @@ trap cleanup EXIT
 
 echo "📦 Copying files to temporary directory..."
 mkdir -p "$PACK_TMP/icons"
-cp extension.js prefs.js translation-helper.js metadata.json stylesheet.css "$PACK_TMP/"
+cp extension.js prefs.js translation-helper.js speech.js speech-helper.js metadata.json stylesheet.css "$PACK_TMP/"
 cp -r po schemas "$PACK_TMP/"
 # Ship only icons actually referenced by the code (dynamic
 # fast-translate-{active,paused}-{dark,light} + fast-translate-icon).
@@ -43,7 +43,7 @@ if ! command -v msgfmt >/dev/null 2>&1; then
 fi
 
 echo "🎁 Packing extension via gnome-extensions pack..."
-(cd "$PACK_TMP" && gnome-extensions pack --force --podir=po --extra-source=translation-helper.js --extra-source=icons)
+(cd "$PACK_TMP" && gnome-extensions pack --force --podir=po --extra-source=translation-helper.js --extra-source=speech.js --extra-source=speech-helper.js --extra-source=icons)
 
 echo "💾 Moving package back to project root..."
 # Only replace the old zip after the new one built successfully.

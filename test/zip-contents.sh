@@ -20,7 +20,7 @@ LIST=$(unzip -Z1 "$ZIP")
 fail() { echo "❌ $1"; exit 1; }
 
 # 1. Required files (mirrors scripts/pack.sh staging)
-for f in extension.js prefs.js translation-helper.js metadata.json stylesheet.css \
+for f in extension.js prefs.js translation-helper.js speech.js speech-helper.js metadata.json stylesheet.css \
     schemas/org.gnome.shell.extensions.fast-translate.gschema.xml \
     icons/fast-translate-active-dark.svg icons/fast-translate-active-light.svg \
     icons/fast-translate-paused-dark.svg icons/fast-translate-paused-light.svg \
@@ -41,7 +41,7 @@ UUID=$(python3 -c "import json; print(json.load(open('metadata.json'))['uuid'])"
 # 4. Freshness: every shipped source must be older than the zip.
 # Without this the gate passes on a stale zip after source edits.
 STALE=""
-for f in extension.js prefs.js translation-helper.js metadata.json stylesheet.css \
+for f in extension.js prefs.js translation-helper.js speech.js speech-helper.js metadata.json stylesheet.css \
     schemas/org.gnome.shell.extensions.fast-translate.gschema.xml \
     icons/fast-translate-active-dark.svg icons/fast-translate-active-light.svg \
     icons/fast-translate-paused-dark.svg icons/fast-translate-paused-light.svg \

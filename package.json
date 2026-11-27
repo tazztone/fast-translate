@@ -6,7 +6,7 @@
     "build": "bash scripts/pack.sh",
     "apply": "bash scripts/apply.sh",
     "deploy": "npm run build && npm run apply",
-    "test": "node test/unit.test.js && gjs -m test/prefs-validator.js && bash test/zip-contents.sh",
+    "test": "node test/unit.test.js && node test/speech.test.js && gjs -m test/speech-controller.test.js && gjs -m test/prefs-validator.js && bash test/zip-contents.sh",
     "test:integration": "bash test/integration.sh"
   }
 }
