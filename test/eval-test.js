@@ -42,11 +42,45 @@ global.testRunnerPromise = (async () => {
             const GLib = imports.gi.GLib;
             GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => { resolve(); return GLib.SOURCE_REMOVE; });
         });
+        const _waitMainloop = milliseconds => new Promise(resolve => {
+            const GLib = imports.gi.GLib;
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, milliseconds, () => { resolve(); return GLib.SOURCE_REMOVE; });
+        });
         await _pumpMainloop();
+
+        // Speech UI limits: no network, restore text even on failure.
+        const speechInput = indicator.inputEntry.get_text();
+        const speechOutput = indicator.outputEntry.get_text();
+        try {
+            indicator.inputEntry.set_text("a".repeat(500));
+            indicator.outputEntry.set_text("😀".repeat(500));
+            if (!indicator.sourceSpeechBtn.reactive || !indicator.targetSpeechBtn.reactive)
+                throw new Error("Speech buttons disabled at 500 code points");
+            indicator.inputEntry.set_text("a".repeat(501));
+            indicator.outputEntry.set_text("😀".repeat(501));
+            if (indicator.sourceSpeechBtn.reactive || indicator.targetSpeechBtn.reactive)
+                throw new Error("Speech buttons enabled above 500 code points");
+            indicator.inputEntry.set_text("");
+            if (indicator.sourceSpeechBtn.reactive)
+                throw new Error("Speech enabled for empty text");
+        } finally {
+            indicator.inputEntry.set_text(speechInput);
+            indicator.outputEntry.set_text(speechOutput);
+        }
+
+        const speechWindow = new indicator.FloatingTranslationWindow(
+            "a".repeat(500), "a".repeat(501), "EN", "FR", null, null,
+            indicator._settings, indicator._speech);
+        try {
+            if (!speechWindow.sourceSpeechBtn.reactive || speechWindow.targetSpeechBtn.reactive)
+                throw new Error("Floating speech limit incorrect");
+        } finally {
+            speechWindow.destroy();
+        }
 
         // Test 0b: audit schema *defaults* (state-independent: reads defaults,
         // not live values). Safe-default contract EGO reviewers check first.
-        const _def = (k) => indicator._settings.get_default_value(k).unpack();
+        const _def = (k) => indicator._settings.get_default_value(k).deep_unpack();
         const _safeDefaults = [
             ['auto-paste', false],
             ['auto-copy', false],
@@ -406,6 +440,10 @@ global.testRunnerPromise = (async () => {
 
             try {
                 indicator._translateClipboardShortcut();
+                await _waitMainloop(350);
+                if (!indicator._quickTranslateLoading) {
+                    return { success: false, error: "Quick Translate did not show loading UI after the display delay" };
+                }
                 if (triggeredText !== "Quick Translate input") {
                     return { success: false, error: "Quick Translate did not route clipboard text to the popup pipeline" };
                 }
@@ -416,23 +454,194 @@ global.testRunnerPromise = (async () => {
                 if (triggeredText !== null) {
                     return { success: false, error: "Quick Translate must ignore an empty selection" };
                 }
+                await _waitMainloop(450);
+                if (indicator._quickTranslateLoading) {
+                    return { success: false, error: "Quick Translate left loading UI after an empty selection and minimum display time" };
+                }
             } finally {
                 indicator._copySelectionForQuickTranslate = originalCopySelection;
                 indicator._triggerFloatingTranslation = originalTriggerFloating;
+                indicator._hideQuickTranslateLoading();
             }
         } catch (e) {
             return { success: false, error: "Quick Translate shortcut test failed: " + (e.message || String(e)) };
+        }
+
+        // Loading popover stays visible until the matching translation settles,
+        // then disappears only after the result popup has been created.
+        try {
+            const originalCopySelection = indicator._copySelectionForQuickTranslate;
+            const originalIndependent = indicator._translateTextIndependent;
+            const originalBackground = indicator._settings.get_boolean("floating-background-mode");
+            const pending = [];
+
+            indicator._settings.set_boolean("floating-background-mode", false);
+            await _pumpMainloop();
+            indicator._copySelectionForQuickTranslate = function(callback) {
+                callback("Loading lifecycle input");
+            };
+            indicator._translateTextIndependent = function(text, callback, onSettled) {
+                pending.push([callback, onSettled]);
+            };
+
+            try {
+                indicator._translateClipboardShortcut();
+                const compactLoading = indicator._quickTranslateLoading;
+                if (!compactLoading || compactLoading.actor.width !== 36 ||
+                    compactLoading.actor.height !== 36 || compactLoading.label.opacity !== 0) {
+                    return { success: false, error: "Quick Translate did not expose its compact spinner frame first" };
+                }
+                const [pivotX, pivotY] = compactLoading.spinner.get_pivot_point();
+                if (pivotX !== 0.5 || pivotY !== 0.5) {
+                    return { success: false, error: "Quick Translate spinner does not rotate around its center" };
+                }
+                await _waitMainloop(350);
+                const firstLoading = indicator._quickTranslateLoading;
+                if (!firstLoading || !firstLoading.actor ||
+                    firstLoading.actor.style_class !== "translate-loading-popover") {
+                    return { success: false, error: "Quick Translate loading popover was not created" };
+                }
+                if (firstLoading.actor.width >= 200 || firstLoading.label.opacity !== 255) {
+                    return { success: false, error: "Quick Translate loading popover did not expand compactly" };
+                }
+
+                firstLoading.actor.notify("allocation");
+                const [ptrX, ptrY] = global.get_pointer();
+                const monIdx = Math.max(0, Main.layoutManager.monitors.findIndex(m =>
+                    ptrX >= m.x && ptrX < m.x + m.width && ptrY >= m.y && ptrY < m.y + m.height));
+                const workArea = Main.layoutManager.getWorkAreaForMonitor(monIdx);
+                const [, loadingWidth] = firstLoading.actor.get_preferred_width(-1);
+                const [, loadingHeight] = firstLoading.actor.get_preferred_height(loadingWidth);
+                if (firstLoading.actor.x < workArea.x || firstLoading.actor.y < workArea.y ||
+                    firstLoading.actor.x + loadingWidth > workArea.x + workArea.width ||
+                    firstLoading.actor.y + loadingHeight > workArea.y + workArea.height) {
+                    return { success: false, error: "Quick Translate loading popover left the work area" };
+                }
+
+                pending[0][0]("Translated result", "EN");
+                if (!indicator._floatingWindow) {
+                    return { success: false, error: "Translation result popup was not created" };
+                }
+                if (indicator._floatingWindow.actor.x !== firstLoading.actor.x ||
+                    indicator._floatingWindow.actor.y !== firstLoading.actor.y) {
+                    return { success: false, error: "Translation popup did not replace the loader at the same coordinates" };
+                }
+                if (indicator._quickTranslateLoading !== firstLoading) {
+                    return { success: false, error: "Loading popover disappeared before translation settled" };
+                }
+                pending[0][1]();
+                await _waitMainloop(450);
+                if (indicator._quickTranslateLoading) {
+                    return { success: false, error: "Loading popover remained after its minimum display time" };
+                }
+                indicator._floatingWindow.destroy();
+                indicator._floatingWindow = null;
+
+                indicator._translateClipboardShortcut();
+                await _waitMainloop(350);
+                const oldSettled = pending[1][1];
+                indicator._translateClipboardShortcut();
+                await _waitMainloop(350);
+                const currentLoading = indicator._quickTranslateLoading;
+                oldSettled();
+                if (!currentLoading || indicator._quickTranslateLoading !== currentLoading) {
+                    return { success: false, error: "Old request hid the current loading popover" };
+                }
+                pending[2][1]();
+                await _waitMainloop(450);
+                if (indicator._quickTranslateLoading) {
+                    return { success: false, error: "Current request did not hide its loading popover" };
+                }
+
+                indicator._copySelectionForQuickTranslate = function(callback, onFailure) {
+                    onFailure();
+                };
+                indicator._translateClipboardShortcut();
+                await _waitMainloop(450);
+                if (indicator._quickTranslateLoading) {
+                    return { success: false, error: "Copy failure left the loading popover visible after its minimum display time" };
+                }
+
+                // A stalled request changes the existing status label after
+                // the slow threshold, then cancels and exposes retry at its
+                // deadline. The shortened timings exercise production's
+                // exact source ownership without slowing the full suite.
+                indicator._copySelectionForQuickTranslate = function(callback) {
+                    callback("Timeout lifecycle input");
+                };
+                indicator._quickTranslateTiming = {slowRequestMs: 50, requestTimeoutMs: 100};
+                indicator._translateClipboardShortcut();
+                await _waitMainloop(75);
+                const timeoutLoading = indicator._quickTranslateLoading;
+                if (!timeoutLoading || timeoutLoading.label.text !== "Still translating…") {
+                    return { success: false, error: "Slow Quick Translate request did not modify its status text" };
+                }
+                await _waitMainloop(75);
+                if (timeoutLoading.label.text !== "Translation timed out" ||
+                    !timeoutLoading.retryButton.visible) {
+                    return { success: false, error: "Quick Translate timeout did not expose retry" };
+                }
+                timeoutLoading.retryButton.emit("clicked", 0);
+                await _waitMainloop(25);
+                if (indicator._quickTranslateLoading === timeoutLoading ||
+                    !indicator._quickTranslateLoading || indicator._quickTranslateLoading.retryButton.visible) {
+                    return { success: false, error: "Quick Translate retry did not start a fresh loading state" };
+                }
+                const retrySettled = pending[pending.length - 1][1];
+                retrySettled();
+                await _waitMainloop(450);
+                if (indicator._quickTranslateLoading) {
+                    return { success: false, error: "Retried Quick Translate request left loading UI visible" };
+                }
+
+                // A response that arrives before the first spinner cycle is
+                // complete must not cut off the compact-to-expanded feedback.
+                delete indicator._quickTranslateTiming;
+                indicator._translateClipboardShortcut();
+                const fastResponseLoading = indicator._quickTranslateLoading;
+                const fastResponse = pending[pending.length - 1];
+                fastResponse[0]("Fast result", "EN");
+                fastResponse[1]();
+                if (indicator._quickTranslateLoading !== fastResponseLoading) {
+                    return { success: false, error: "Fast response interrupted the first spinner cycle" };
+                }
+                await _waitMainloop(450);
+                if (indicator._quickTranslateLoading) {
+                    return { success: false, error: "Fast response did not close after the first spinner cycle" };
+                }
+                if (indicator._floatingWindow) {
+                    indicator._floatingWindow.destroy();
+                    indicator._floatingWindow = null;
+                }
+            } finally {
+                indicator._copySelectionForQuickTranslate = originalCopySelection;
+                indicator._translateTextIndependent = originalIndependent;
+                indicator._settings.set_boolean("floating-background-mode", originalBackground);
+                delete indicator._quickTranslateTiming;
+                await _pumpMainloop();
+                indicator._hideQuickTranslateLoading();
+                if (indicator._floatingWindow) {
+                    indicator._floatingWindow.destroy();
+                    indicator._floatingWindow = null;
+                }
+            }
+        } catch (e) {
+            indicator._hideQuickTranslateLoading();
+            return { success: false, error: "Quick Translate loading lifecycle test failed: " + (e.message || String(e)) };
         }
 
         // Test 8a: virtual Ctrl+C is emitted in the exact press/release order.
         try {
             const Clutter = imports.gi.Clutter;
             const originalVirtualKeyboard = indicator._virtualKeyboard;
+            const originalLayoutCheck = indicator._isNonLatinLayoutActive;
             const events = [];
             indicator._virtualKeyboard = {
                 notify_keyval: (time, keyval, state) => events.push([keyval, state]),
+                notify_key: (time, key, state) => events.push(['evdev', key, state]),
             };
             try {
+                indicator._isNonLatinLayoutActive = () => false;
                 if (!indicator._sendVirtualCopyShortcut()) {
                     return { success: false, error: "Virtual Ctrl+C helper reported failure" };
                 }
@@ -445,11 +654,85 @@ global.testRunnerPromise = (async () => {
                 if (JSON.stringify(events) !== JSON.stringify(expected)) {
                     return { success: false, error: "Virtual Ctrl+C event order is incorrect: " + JSON.stringify(events) };
                 }
+
+                // Non-Latin layout (e.g. ru): KEY_c has no keycode in the
+                // current group, so physical evdev Ctrl (29) + C (46) are sent.
+                events.length = 0;
+                indicator._isNonLatinLayoutActive = () => true;
+                if (!indicator._sendVirtualCopyShortcut()) {
+                    return { success: false, error: "Virtual Ctrl+C helper reported failure on non-Latin layout" };
+                }
+                const expectedEvdev = [
+                    ['evdev', 29, Clutter.KeyState.PRESSED],
+                    ['evdev', 46, Clutter.KeyState.PRESSED],
+                    ['evdev', 46, Clutter.KeyState.RELEASED],
+                    ['evdev', 29, Clutter.KeyState.RELEASED],
+                ];
+                if (JSON.stringify(events) !== JSON.stringify(expectedEvdev)) {
+                    return { success: false, error: "Non-Latin virtual Ctrl+C event order is incorrect: " + JSON.stringify(events) };
+                }
             } finally {
                 indicator._virtualKeyboard = originalVirtualKeyboard;
+                indicator._isNonLatinLayoutActive = originalLayoutCheck;
             }
         } catch (e) {
             return { success: false, error: "Virtual Ctrl+C test failed: " + (e.message || String(e)) };
+        }
+
+        // Clipboard owner notifications and late reads must not reuse old text.
+        {
+            const StCopy = (await import("gi://St")).default;
+            const clipboardPrototype = StCopy.Clipboard.prototype;
+            const originalRead = clipboardPrototype.get_text;
+            const reads = [];
+            let result = null;
+            try {
+                clipboardPrototype.get_text = function(type, callback) { reads.push(callback); };
+                indicator._cancelQuickCopy();
+                indicator._quickCopyInjected = true;
+                indicator._quickCopyPreviousText = "old selection";
+                indicator._readQuickCopyResult(text => { result = text; }, true);
+                reads.shift()(null, "old selection");
+                if (result !== null || !indicator._quickCopyInjected)
+                    throw new Error("Owner notification accepted stale clipboard");
+                indicator._readQuickCopyResult(text => { result = text; }, true);
+                const oldRead = reads.shift();
+                indicator._cancelQuickCopy();
+                indicator._quickCopyInjected = true;
+                indicator._quickCopyPreviousText = "old selection";
+                oldRead(null, "previous request selection");
+                if (result !== null) throw new Error("Late clipboard read crossed shortcut generations");
+                indicator._readQuickCopyResult(text => { result = text; }, true);
+                reads.shift()(null, "current selection");
+                if (result !== "current selection") throw new Error("Fresh selection was ignored");
+            } finally {
+                clipboardPrototype.get_text = originalRead;
+                indicator._cancelQuickCopy();
+            }
+        }
+
+        // New translations take precedence over responses from earlier shortcuts.
+        {
+            const originalIndependent = indicator._translateTextIndependent;
+            const background = indicator._settings.get_boolean("floating-background-mode");
+            const responses = [];
+            try {
+                indicator._settings.set_boolean("floating-background-mode", false);
+                await _pumpMainloop();
+                indicator._translateTextIndependent = function(text, callback) { responses.push(callback); };
+                indicator._triggerFloatingTranslation("old request");
+                indicator._triggerFloatingTranslation("current request");
+                responses[1]("current translation", "EN");
+                const currentWindow = indicator._floatingWindow;
+                responses[0]("old translation", "EN");
+                if (!currentWindow || indicator._floatingWindow !== currentWindow)
+                    throw new Error("Older translation replaced current popup");
+            } finally {
+                indicator._translateTextIndependent = originalIndependent;
+                if (indicator._floatingWindow) indicator._floatingWindow.destroy();
+                indicator._settings.set_boolean("floating-background-mode", background);
+                await _pumpMainloop();
+            }
         }
 
         // Test 8b: clipboard insertion helpers preserve the distinct button
@@ -715,6 +998,26 @@ global.testRunnerPromise = (async () => {
                 return { success: false, error: "Translated text taller than its scroll area: " + needH };
             }
 
+            // A saved Quick Translate anchor near the lower-right edge must
+            // flip the final popup above and left instead of clipping it.
+            let edgeWin = new FloatingTranslationWindow(
+                "Input text", "Output text", "EN", "FR", null, null,
+                indicator._settings, null,
+                {x: wa.x + wa.width - 4, y: wa.y + wa.height - 4});
+            edgeWin.actor.notify('allocation');
+            let [, edgeWidth] = edgeWin.actor.get_preferred_width(-1);
+            let [, edgeHeight] = edgeWin.actor.get_preferred_height(edgeWidth);
+            if (edgeWin.actor.x < wa.x || edgeWin.actor.y < wa.y ||
+                edgeWin.actor.x + edgeWidth > wa.x + wa.width ||
+                edgeWin.actor.y + edgeHeight > wa.y + wa.height ||
+                edgeWin.actor.x >= wa.x + wa.width - 4 ||
+                edgeWin.actor.y >= wa.y + wa.height - 4) {
+                edgeWin.destroy();
+                win.destroy();
+                return { success: false, error: "Anchored popup did not choose a fitting expansion direction" };
+            }
+            edgeWin.destroy();
+
             // Verify escape key event destroys the window
             let Clutter = imports.gi.Clutter;
             let mockEvent = {
@@ -767,9 +1070,14 @@ global.testRunnerPromise = (async () => {
 
                 // Independent (floating/background) path
                 let indepCb10 = false;
-                indicator._translateTextIndependent('Hello', () => { indepCb10 = true; });
+                let indepSettled10 = false;
+                indicator._translateTextIndependent(
+                    'Hello',
+                    () => { indepCb10 = true; },
+                    () => { indepSettled10 = true; });
                 if (httpIssued10) return { success: false, error: 'Test 10: independent path sent HTTP over insecure URL' };
                 if (indepCb10) return { success: false, error: 'Test 10: independent path invoked callback after https refusal' };
+                if (!indepSettled10) return { success: false, error: 'Test 10: independent path did not settle after https refusal' };
             } finally {
                 indicator._httpSession.send_and_read_async = origAsync10;
                 try { indicator._settings.set_enum('translation-service', origService10); } catch (e) {}

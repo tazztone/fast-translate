@@ -196,6 +196,43 @@
 }
 
 /* Floating Window Styles */
+.translate-loading-overlay {
+    background-color: transparent;
+}
+
+.translate-loading-popover {
+    background-color: #1e1e1e;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.translate-loading-spinner-box {
+    width: 36px;
+    height: 36px;
+}
+
+.translate-loading-spinner {
+    color: #3584e4;
+}
+
+.translate-loading-label {
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.translate-loading-retry-btn {
+    padding: 5px 8px;
+    border-radius: 7px;
+    color: #ffffff;
+    background-color: rgba(53, 132, 228, 0.85);
+}
+
+.translate-loading-retry-btn:hover {
+    background-color: #3584e4;
+}
+
 .translate-floating-overlay {
     background-color: transparent;
 }

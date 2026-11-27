@@ -78,6 +78,22 @@ msgstr "Abbrechen"
 msgid "Translated"
 msgstr ""
 
+#: extension.js
+msgid "Translating…"
+msgstr "Wird übersetzt…"
+
+#: extension.js
+msgid "Still translating…"
+msgstr "Übersetzung läuft noch…"
+
+#: extension.js
+msgid "Translation timed out"
+msgstr "Zeitüberschreitung bei der Übersetzung"
+
+#: extension.js
+msgid "Retry"
+msgstr "Erneut versuchen"
+
 #: extension.js:832 extension.js:979
 msgid "Rate-limited or blocked by Google Translate. Please try again later."
 msgstr ""
@@ -669,4 +685,20 @@ msgstr ""
 
 #: schemas/org.gnome.shell.extensions.fast-translate.gschema.xml
 msgid "Shortcut to copy the active text selection and translate it in a floating popup"
+msgstr ""
+
+#: extension.js
+msgid "Speech is available for text up to 500 characters"
+msgstr ""
+
+#: extension.js
+msgid "Read aloud"
+msgstr ""
+
+#: extension.js
+msgid "Stop reading"
+msgstr ""
+
+#: extension.js
+msgid "Unable to read text. Check your connection, language support and GStreamer audio installation."
 msgstr ""

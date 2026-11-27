@@ -22,6 +22,9 @@
  * IN THE SOFTWARE.
  */
 
+import {SpeechController} from './speech.js';
+import {canSpeak} from './speech-helper.js';
+
 import Gio from "gi://Gio";
 import Clutter from "gi://Clutter";
 import St from "gi://St";
@@ -33,10 +36,11 @@ import Shell from "gi://Shell";
 import Soup from "gi://Soup?version=3.0";
 
 import { Extension, gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
-import { parseCountryCode, buildRequestQuery, formatLanguageLabel, parseLanguageName, getFlagEmoji } from "./translation-helper.js";
+import { parseCountryCode, buildRequestQuery, formatLanguageLabel, parseLanguageName, getFlagEmoji, isNonLatinXkbLayout } from "./translation-helper.js";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
+import { getInputSourceManager } from "resource:///org/gnome/shell/ui/status/keyboard.js";
 
 // Clipboard access is the core, user-visible purpose of this extension
 // (translate clipboard/pasted text, copy results back). Reads happen only on:
@@ -52,10 +56,18 @@ function getClipboard() {
 }
 
 const SHORTCUT_SETTING_KEY = "keybinding-translate-clipboard";
+// Linux evdev keycodes (input-event-codes.h) for the physical Ctrl+C keys.
+const EVDEV_KEY_LEFTCTRL = 29;
+const EVDEV_KEY_C = 46;
 const TIMEOUT_MS = 500;
 const QUICK_COPY_POLL_MS = 25;
 const QUICK_COPY_RELEASE_TIMEOUT_MS = 1000;
 const QUICK_COPY_CLIPBOARD_TIMEOUT_MS = 800;
+const QUICK_TRANSLATE_EXPAND_DURATION_MS = 300;
+const QUICK_TRANSLATE_MIN_DISPLAY_MS = 400;
+const QUICK_TRANSLATE_SPINNER_CYCLE_MS = 400;
+const QUICK_TRANSLATE_SLOW_REQUEST_MS = 3000;
+const QUICK_TRANSLATE_REQUEST_TIMEOUT_MS = 15000;
 const SHORTCUT_MODIFIER_MASK = Clutter.ModifierType.CONTROL_MASK |
     Clutter.ModifierType.SHIFT_MASK |
     Clutter.ModifierType.MOD1_MASK |
@@ -108,11 +120,20 @@ class Tooltip {
         }
     }
 
-    _show() {
+    showMessage(text) {
+        this._show(text);
+        this._timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 5000, () => {
+            this._timeoutId = null;
+            this._hide();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _show(message = null) {
         this._hide();
 
         this._tooltipActor = new St.Label({
-            text: typeof this._text === 'function' ? this._text() : this._text,
+            text: message ?? (typeof this._text === 'function' ? this._text() : this._text),
             style_class: 'translate-tooltip'
         });
 
@@ -129,13 +150,15 @@ class Tooltip {
             let tooltipWidth = this._tooltipActor.get_width();
             let tooltipHeight = this._tooltipActor.get_height();
 
-            let tx = x + (width - tooltipWidth) / 2;
-            let ty = y - tooltipHeight - 6;
-
-            if (ty < 0) {
-                ty = y + height + 6;
-            }
-            if (tx < 5) tx = 5;
+            const monitor = Main.layoutManager.monitors.find(m =>
+                x >= m.x && x < m.x + m.width && y >= m.y && y < m.y + m.height)
+                ?? Main.layoutManager.primaryMonitor;
+            let tx = x + width + 6;
+            let ty = y + (height - tooltipHeight) / 2;
+            if (tx + tooltipWidth > monitor.x + monitor.width - 5)
+                tx = x - tooltipWidth - 6;
+            tx = Math.max(monitor.x + 5, Math.min(tx, monitor.x + monitor.width - tooltipWidth - 5));
+            ty = Math.max(monitor.y + 5, Math.min(ty, monitor.y + monitor.height - tooltipHeight - 5));
 
             this._tooltipActor.set_position(Math.round(tx), Math.round(ty));
         });
@@ -176,6 +199,8 @@ var FastTranslate = GObject.registerClass(
 
             this._destroyed = false;
             this._httpSession = new Soup.Session({ timeout: 10 });
+            this._speech = new SpeechController((_error, button) => button?._speechTooltip?.showMessage(
+                _('Unable to read text. Check your connection, language support and GStreamer audio installation.')));
             this._cancellable = null;
             this._tooltips = [];
             // Test seam: eval-test.js instantiates the floating window via
@@ -193,6 +218,17 @@ var FastTranslate = GObject.registerClass(
             this._quickCopyInjected = false;
             this._quickCopyPreviousText = null;
             this._quickCopyGeneration = 0;
+            this._floatingTranslationGeneration = 0;
+            this._quickTranslateLoading = null;
+            this._quickTranslateLoadingGeneration = null;
+            this._quickTranslateHideId = null;
+            this._quickTranslateSlowId = null;
+            this._quickTranslateTimeoutId = null;
+            this._quickTranslateShownAtUs = 0;
+            this._quickTranslateCancellable = null;
+            this._quickTranslateText = null;
+            this._quickTranslatePointerAnchor = null;
+            this._quickTranslateTimedOutGeneration = null;
             this._interfaceSettings = null;
             this._colorSchemeChangedId = null;
             this._gtkThemeChangedId = null;
@@ -306,6 +342,8 @@ var FastTranslate = GObject.registerClass(
                     this._tooltips.forEach(t => t._hide());
                 }
                 if (!isOpen) {
+                    this._speech.stop(this.sourceSpeechBtn);
+                    this._speech.stop(this.targetSpeechBtn);
                     this._toggleLanguageSelector(true, false);
                 } else {
                     if (this.autoPasteSwitch.state === true) {
@@ -514,36 +552,206 @@ var FastTranslate = GObject.registerClass(
         }
 
         _translateClipboardShortcut() {
+            this._cancelQuickTranslateRequest();
+            const requestGeneration = ++this._floatingTranslationGeneration;
+            const [pointerX, pointerY] = global.get_pointer();
+            this._quickTranslatePointerAnchor = {x: pointerX, y: pointerY};
+            this._showQuickTranslateLoading(requestGeneration);
             this._copySelectionForQuickTranslate((selectedText) => {
                 if (this._destroyed || !selectedText || selectedText.trim() === "") {
+                    this._hideQuickTranslateLoading(requestGeneration);
                     return;
                 }
-                this._triggerFloatingTranslation(selectedText);
-            });
+                this._quickTranslateText = selectedText;
+                this._triggerFloatingTranslation(selectedText, requestGeneration);
+            }, () => this._hideQuickTranslateLoading(requestGeneration));
         }
 
-        _copySelectionForQuickTranslate(callback) {
+        _showQuickTranslateLoading(requestGeneration) {
+            this._hideQuickTranslateLoading(null, true);
+            if (this._destroyed) return;
+
+            this._quickTranslateLoadingGeneration = requestGeneration;
+            try {
+                this._quickTranslateLoading = new QuickTranslateLoadingPopover(
+                    () => this._cancelQuickTranslateRequest(requestGeneration),
+                    () => this._retryQuickTranslate(requestGeneration),
+                    this._quickTranslatePointerAnchor
+                );
+                this._quickTranslateShownAtUs = GLib.get_monotonic_time();
+            } catch (e) {
+                this._quickTranslateLoading = null;
+                this._quickTranslateLoadingGeneration = null;
+                console.error(`Fast Translate: could not show loading popover: ${e.message || e}`);
+            }
+        }
+
+        _clearQuickTranslateLoadingTimers() {
+            if (this._quickTranslateHideId) {
+                GLib.Source.remove(this._quickTranslateHideId);
+                this._quickTranslateHideId = null;
+            }
+        }
+
+        _hideQuickTranslateLoading(requestGeneration = null, immediate = false) {
+            if (requestGeneration !== null &&
+                requestGeneration !== this._quickTranslateLoadingGeneration) {
+                return;
+            }
+
+            this._clearQuickTranslateLoadingTimers();
+            const destroy = () => {
+                if (this._quickTranslateLoading) {
+                    this._quickTranslateLoading.destroy();
+                    this._quickTranslateLoading = null;
+                }
+                this._quickTranslateLoadingGeneration = null;
+                this._quickTranslateShownAtUs = 0;
+            };
+
+            const destroyAfterMinimumDisplay = () => {
+                if (!this._quickTranslateLoading || !this._quickTranslateShownAtUs) {
+                    destroy();
+                    return;
+                }
+                const elapsedMs = (GLib.get_monotonic_time() - this._quickTranslateShownAtUs) / 1000;
+                const remainingMs = QUICK_TRANSLATE_MIN_DISPLAY_MS - elapsedMs;
+                if (remainingMs > 0) {
+                    this._quickTranslateHideId = GLib.timeout_add(
+                        GLib.PRIORITY_DEFAULT,
+                        Math.ceil(remainingMs),
+                        () => {
+                            this._quickTranslateHideId = null;
+                            if (requestGeneration === null || requestGeneration === this._quickTranslateLoadingGeneration)
+                                destroy();
+                            return GLib.SOURCE_REMOVE;
+                        }
+                    );
+                    return;
+                }
+                destroy();
+            };
+
+            if (immediate) {
+                destroy();
+                return;
+            }
+            if (this._quickTranslateLoading) {
+                this._quickTranslateLoading.finish(destroyAfterMinimumDisplay);
+                return;
+            }
+            destroyAfterMinimumDisplay();
+        }
+
+        _clearQuickTranslateRequestTimeout() {
+            if (this._quickTranslateSlowId) {
+                GLib.Source.remove(this._quickTranslateSlowId);
+                this._quickTranslateSlowId = null;
+            }
+            if (this._quickTranslateTimeoutId) {
+                GLib.Source.remove(this._quickTranslateTimeoutId);
+                this._quickTranslateTimeoutId = null;
+            }
+        }
+
+        _cancelQuickTranslateRequest(requestGeneration = null) {
+            if (requestGeneration !== null && requestGeneration !== this._quickTranslateLoadingGeneration)
+                return;
+
+            if (requestGeneration !== null && requestGeneration === this._floatingTranslationGeneration)
+                this._floatingTranslationGeneration++;
+            this._cancelQuickCopy();
+            this._clearQuickTranslateRequestTimeout();
+            if (this._quickTranslateCancellable) {
+                this._quickTranslateCancellable.cancel();
+                this._quickTranslateCancellable = null;
+            }
+            this._quickTranslateText = null;
+            this._quickTranslateTimedOutGeneration = null;
+            this._hideQuickTranslateLoading(requestGeneration, true);
+        }
+
+        _beginQuickTranslateRequestTimeout(requestGeneration) {
+            this._clearQuickTranslateRequestTimeout();
+            // Integration tests override these values to exercise the full
+            // timeout lifecycle without waiting fifteen seconds.
+            const slowRequestMs = this._quickTranslateTiming?.slowRequestMs ??
+                QUICK_TRANSLATE_SLOW_REQUEST_MS;
+            const requestTimeoutMs = this._quickTranslateTiming?.requestTimeoutMs ??
+                QUICK_TRANSLATE_REQUEST_TIMEOUT_MS;
+            this._quickTranslateSlowId = GLib.timeout_add(
+                GLib.PRIORITY_DEFAULT,
+                slowRequestMs,
+                () => {
+                    this._quickTranslateSlowId = null;
+                    if (requestGeneration === this._quickTranslateLoadingGeneration)
+                        this._quickTranslateLoading?.showSlowMessage();
+                    return GLib.SOURCE_REMOVE;
+                }
+            );
+            this._quickTranslateTimeoutId = GLib.timeout_add(
+                GLib.PRIORITY_DEFAULT,
+                requestTimeoutMs,
+                () => {
+                    this._quickTranslateTimeoutId = null;
+                    this._handleQuickTranslateTimeout(requestGeneration);
+                    return GLib.SOURCE_REMOVE;
+                }
+            );
+        }
+
+        _handleQuickTranslateTimeout(requestGeneration) {
+            if (this._destroyed || requestGeneration !== this._quickTranslateLoadingGeneration)
+                return;
+            this._quickTranslateTimedOutGeneration = requestGeneration;
+            this._quickTranslateCancellable?.cancel();
+            this._quickTranslateCancellable = null;
+            if (requestGeneration === this._floatingTranslationGeneration)
+                this._floatingTranslationGeneration++;
+            this._quickTranslateLoading?.showRetry();
+        }
+
+        _retryQuickTranslate(requestGeneration) {
+            if (requestGeneration !== this._quickTranslateLoadingGeneration || !this._quickTranslateText)
+                return;
+            const text = this._quickTranslateText;
+            this._quickTranslateTimedOutGeneration = null;
+            this._hideQuickTranslateLoading(requestGeneration, true);
+            const retryGeneration = ++this._floatingTranslationGeneration;
+            this._showQuickTranslateLoading(retryGeneration);
+            this._triggerFloatingTranslation(text, retryGeneration);
+        }
+
+        _copySelectionForQuickTranslate(callback, onFailure = null) {
             this._cancelQuickCopy();
             const generation = this._quickCopyGeneration;
 
             // Snapshot the current clipboard so a failed Ctrl+C never
             // translates stale content from an earlier copy operation.
-            getClipboard().get_text(CLIPBOARD_TYPE, (_, previousText) => {
+            getClipboard().get_text(CLIPBOARD_TYPE, (_clipboard, previousText) => {
                 if (this._destroyed || generation !== this._quickCopyGeneration) {
                     return;
                 }
 
-                this._quickCopyPreviousText = previousText || null;
-                this._quickCopySelection = global.display.get_selection();
-                this._quickCopyOwnerChangedId = this._quickCopySelection.connect(
-                    'owner-changed', (_selection, selectionType, selectionSource) => {
-                        if (!this._quickCopyInjected || !selectionSource ||
-                            selectionType !== Meta.SelectionType.SELECTION_CLIPBOARD) {
-                            return;
+                try {
+                    this._quickCopyPreviousText = previousText || null;
+                    this._quickCopySelection = global.display.get_selection();
+                    this._quickCopyOwnerChangedId = this._quickCopySelection.connect(
+                        'owner-changed', (_selection, selectionType, selectionSource) => {
+                            if (!this._quickCopyInjected || !selectionSource ||
+                                selectionType !== Meta.SelectionType.SELECTION_CLIPBOARD) {
+                                return;
+                            }
+                            this._readQuickCopyResult(callback, true, onFailure);
                         }
-                        this._readQuickCopyResult(callback, true);
-                    }
-                );
+                    );
+                } catch (e) {
+                    console.error(`Fast Translate: could not monitor clipboard selection: ${e.message || e}`);
+                    this._cancelQuickCopy();
+                    Main.notify("Fast Translate", _("Could not copy the selected text"));
+                    onFailure?.();
+                    return;
+                }
 
                 const startedUs = GLib.get_monotonic_time();
                 this._quickCopyWaitId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, QUICK_COPY_POLL_MS, () => {
@@ -561,6 +769,7 @@ var FastTranslate = GObject.registerClass(
                         this._quickCopyWaitId = null;
                         this._cancelQuickCopy();
                         Main.notify("Fast Translate", _("Release the shortcut keys and try again"));
+                        onFailure?.();
                         return GLib.SOURCE_REMOVE;
                     }
 
@@ -569,6 +778,7 @@ var FastTranslate = GObject.registerClass(
                     if (!this._sendVirtualCopyShortcut()) {
                         this._cancelQuickCopy();
                         Main.notify("Fast Translate", _("Could not copy the selected text"));
+                        onFailure?.();
                         return GLib.SOURCE_REMOVE;
                     }
                     if (!this._quickCopyInjected) {
@@ -580,7 +790,7 @@ var FastTranslate = GObject.registerClass(
                         QUICK_COPY_CLIPBOARD_TIMEOUT_MS,
                         () => {
                             this._quickCopyFallbackId = null;
-                            this._readQuickCopyResult(callback, false);
+                            this._readQuickCopyResult(callback, false, onFailure);
                             return GLib.SOURCE_REMOVE;
                         }
                     );
@@ -598,11 +808,28 @@ var FastTranslate = GObject.registerClass(
 
                 const pressed = Clutter.KeyState.PRESSED;
                 const released = Clutter.KeyState.RELEASED;
-                let timeUs = GLib.get_monotonic_time();
-                this._virtualKeyboard.notify_keyval(timeUs, Clutter.KEY_Control_L, pressed);
-                this._virtualKeyboard.notify_keyval(timeUs + 1000, Clutter.KEY_c, pressed);
-                this._virtualKeyboard.notify_keyval(timeUs + 2000, Clutter.KEY_c, released);
-                this._virtualKeyboard.notify_keyval(timeUs + 3000, Clutter.KEY_Control_L, released);
+                const timeUs = GLib.get_monotonic_time();
+                const kb = this._virtualKeyboard;
+
+                // Mutter resolves a synthetic keyval only in the current layout
+                // group, so KEY_c is untypeable under e.g. a Russian layout
+                // ("No keycode found for keyval 63 in current group"). There,
+                // press the physical Ctrl+C keys instead, like a user would;
+                // apps map Ctrl+<Cyrillic es> back to Copy via their Latin group.
+                if (this._isNonLatinLayoutActive()) {
+                    kb.notify_key(timeUs, EVDEV_KEY_LEFTCTRL, pressed);
+                    kb.notify_key(timeUs + 1000, EVDEV_KEY_C, pressed);
+                    kb.notify_key(timeUs + 2000, EVDEV_KEY_C, released);
+                    kb.notify_key(timeUs + 3000, EVDEV_KEY_LEFTCTRL, released);
+                    return true;
+                }
+
+                // Keyval path keeps Ctrl+C correct on non-QWERTY Latin layouts
+                // (Dvorak, Colemak) where the physical C key is another letter.
+                kb.notify_keyval(timeUs, Clutter.KEY_Control_L, pressed);
+                kb.notify_keyval(timeUs + 1000, Clutter.KEY_c, pressed);
+                kb.notify_keyval(timeUs + 2000, Clutter.KEY_c, released);
+                kb.notify_keyval(timeUs + 3000, Clutter.KEY_Control_L, released);
                 return true;
             } catch (e) {
                 console.error(`Fast Translate: virtual Ctrl+C failed: ${e.message || e}`);
@@ -611,18 +838,32 @@ var FastTranslate = GObject.registerClass(
             }
         }
 
-        _readQuickCopyResult(callback, ownerChanged) {
-            getClipboard().get_text(CLIPBOARD_TYPE, (_, selectedText) => {
-                if (this._destroyed || !this._quickCopyInjected) {
+        _isNonLatinLayoutActive() {
+            try {
+                const source = getInputSourceManager()?.currentSource;
+                return !!source && isNonLatinXkbLayout(source.xkbId);
+            } catch (e) {
+                console.error(`Fast Translate: could not read input source: ${e.message || e}`);
+                return false;
+            }
+        }
+
+        _readQuickCopyResult(callback, ownerChanged, onFailure = null) {
+            const generation = this._quickCopyGeneration;
+            getClipboard().get_text(CLIPBOARD_TYPE, (_clipboard, selectedText) => {
+                if (this._destroyed || generation !== this._quickCopyGeneration || !this._quickCopyInjected) {
                     return;
                 }
 
                 const hasText = !!selectedText && selectedText.trim() !== "";
                 const changed = selectedText !== this._quickCopyPreviousText;
-                if (!hasText || (!ownerChanged && !changed)) {
+                // Clipboard managers may announce a new owner before Ctrl+C has
+                // supplied fresh text. An owner event alone is not proof.
+                if (!hasText || !changed) {
                     if (!ownerChanged) {
                         this._cancelQuickCopy();
                         Main.notify("Fast Translate", _("Select text and try again"));
+                        onFailure?.();
                     }
                     return;
                 }
@@ -840,7 +1081,8 @@ var FastTranslate = GObject.registerClass(
                                     const shortText = toText.length > MAX_NOTIFY_CHARS ? `${toText.slice(0, MAX_NOTIFY_CHARS)}…` : toText;
                                     Main.notify(_("Translated"), shortText);
                                 }
-                                callback(toText);
+                                callback(toText, this._translation_service === 1 ? json[2]
+                                    : json.translations?.[0]?.detected_source_language);
                             } else if (this._translation_service === 1 && (message.status_code === 403 || message.status_code === 429)) {
                                 this._showError(_("Rate-limited or blocked by Google Translate. Please try again later."));
                             } else if (message.status_code === 403) {
@@ -856,51 +1098,106 @@ var FastTranslate = GObject.registerClass(
             }
         }
 
-        _triggerFloatingTranslation(fromText) {
+        _triggerFloatingTranslation(fromText, requestGeneration = null) {
+            if (requestGeneration === null) {
+                requestGeneration = ++this._floatingTranslationGeneration;
+            } else if (requestGeneration !== this._floatingTranslationGeneration) {
+                return;
+            }
+
             if (this._floatingWindow) {
                 this._floatingWindow.destroy();
                 this._floatingWindow = null;
             }
 
             let isBackground = this._settings.get_boolean('floating-background-mode');
+            const isQuickTranslate = requestGeneration === this._quickTranslateLoadingGeneration;
+            let cancellable = null;
+            if (isQuickTranslate) {
+                this._quickTranslateCancellable?.cancel();
+                this._quickTranslateCancellable = new Gio.Cancellable();
+                cancellable = this._quickTranslateCancellable;
+                this._beginQuickTranslateRequestTimeout(requestGeneration);
+            }
 
-            this._translateTextIndependent(fromText, (toText) => {
-                if (toText && toText.trim() !== "") {
-                    if (this._destroyed) return;
+            const sourceLang = this._source_lang;
+            const targetLang = this._target_lang;
+            this._translateTextIndependent(
+                fromText,
+                (toText, detectedLanguage) => {
+                    if (this._destroyed || requestGeneration !== this._floatingTranslationGeneration) return;
+                    if (toText && toText.trim() !== "") {
+                        if (this._destroyed) return;
 
-                    if (isBackground) {
-                        this._copyToClipboard(toText);
-                        if (this._settings.get_boolean('floating-background-toast')) {
-                            const shortFrom = fromText.length > MAX_NOTIFY_CHARS ? `${fromText.slice(0, MAX_NOTIFY_CHARS)}…` : fromText;
-                            const shortTo = toText.length > MAX_NOTIFY_CHARS ? `${toText.slice(0, MAX_NOTIFY_CHARS)}…` : toText;
-                            Main.notify(_("Translated"), `${shortFrom} → ${shortTo}`);
-                        }
-                    } else {
-                        this._floatingWindow = new FloatingTranslationWindow(
-                            fromText,
-                            toText,
-                            this._source_lang,
-                            this._target_lang,
-                            () => {
-                                this._floatingWindow = null;
-                            },
-                            (text) => {
-                                this._copyToClipboard(text);
-                            },
-                            this._settings
-                        );
-                        if (this._settings.get_boolean('floating-auto-copy') === true) {
+                        if (isBackground) {
                             this._copyToClipboard(toText);
+                            if (this._settings.get_boolean('floating-background-toast')) {
+                                const shortFrom = fromText.length > MAX_NOTIFY_CHARS ? `${fromText.slice(0, MAX_NOTIFY_CHARS)}…` : fromText;
+                                const shortTo = toText.length > MAX_NOTIFY_CHARS ? `${toText.slice(0, MAX_NOTIFY_CHARS)}…` : toText;
+                                Main.notify(_("Translated"), `${shortFrom} → ${shortTo}`);
+                            }
+                        } else {
+                            // Keep the initial Quick Translate anchor even if
+                            // the pointer moved during the request. The result
+                            // still runs its own fit-to-work-area placement.
+                            const placementAnchor = isQuickTranslate
+                                ? this._quickTranslatePointerAnchor
+                                : null;
+                            this._floatingWindow = new FloatingTranslationWindow(
+                                fromText,
+                                toText,
+                                detectedLanguage || sourceLang,
+                                targetLang,
+                                () => {
+                                    this._floatingWindow = null;
+                                },
+                                (text) => {
+                                    this._copyToClipboard(text);
+                                },
+                                this._settings,
+                                this._speech,
+                                placementAnchor
+                            );
+                            if (this._settings.get_boolean('floating-auto-copy') === true) {
+                                this._copyToClipboard(toText);
+                            }
                         }
                     }
-                }
-            });
+                },
+                () => {
+                    if (!isQuickTranslate || requestGeneration !== this._quickTranslateLoadingGeneration)
+                        return;
+                    this._clearQuickTranslateRequestTimeout();
+                    if (this._quickTranslateCancellable === cancellable)
+                        this._quickTranslateCancellable = null;
+                    if (this._quickTranslateTimedOutGeneration === requestGeneration)
+                        return;
+                    this._quickTranslateText = null;
+                    this._hideQuickTranslateLoading(requestGeneration);
+                },
+                cancellable
+            );
         }
 
-        _translateTextIndependent(fromText, callback) {
-            if (!fromText || fromText.trim() === "") return;
+        _translateTextIndependent(fromText, callback, onSettled = null, cancellable = null) {
+            let settled = false;
+            const settle = () => {
+                if (settled) return;
+                settled = true;
+                try {
+                    onSettled?.();
+                } catch (e) {
+                    console.error(`Fast Translate: completion callback failed: ${e.message || e}`);
+                }
+            };
+
+            if (!fromText || fromText.trim() === "") {
+                settle();
+                return;
+            }
             if (fromText.length > MAX_INPUT_CHARS) {
                 Main.notify("Fast Translate", _("Text too long (max %d characters)").format(MAX_INPUT_CHARS));
+                settle();
                 return;
             }
 
@@ -920,6 +1217,7 @@ var FastTranslate = GObject.registerClass(
                     if (!message) throw new Error(_("Invalid URL"));
                 } catch (e) {
                     Main.notify("Fast Translate", `${_("Error")}: ${e.message}`);
+                    settle();
                     return;
                 }
 
@@ -954,6 +1252,7 @@ var FastTranslate = GObject.registerClass(
                 // The DeepL endpoint URL is user-editable: never send the key over plaintext.
                 if (!this._isDeepLUrlSecure()) {
                     Main.notify("Fast Translate", _("DeepL URL must use https://"));
+                    settle();
                     return;
                 }
 
@@ -962,6 +1261,7 @@ var FastTranslate = GObject.registerClass(
                     if (!message) throw new Error(_("Invalid URL"));
                 } catch (e) {
                     Main.notify("Fast Translate", `${_("Error")}: ${e.message}`);
+                    settle();
                     return;
                 }
 
@@ -969,49 +1269,67 @@ var FastTranslate = GObject.registerClass(
                 message.set_request_body_from_bytes('application/json', bytes);
             }
             
-            if (this._destroyed || !this._httpSession) return;
+            if (this._destroyed || !this._httpSession) {
+                settle();
+                return;
+            }
 
-            this._httpSession.send_and_read_async(
-                message,
-                GLib.PRIORITY_DEFAULT,
-                null,
-                (session, result) => {
-                    let resBytes;
-                    try {
-                        resBytes = session.send_and_read_finish(result);
-                    } catch (e) {
-                        if (this._destroyed) return;
-                        Main.notify("Fast Translate", `Error: ${e.message || e}`);
-                        return;
-                    }
-
-                    if (this._destroyed) return;
-                    try {
-                        if (message.status_code === 200) {
-                            let decoder = new TextDecoder("utf-8");
-                            let response = decoder.decode(resBytes.get_data());
-                            let json = JSON.parse(response);
-                            
-                            let toText = "";
-                            if (this._translation_service === 1) {
-                                toText = (json && json[0]) ? json[0].map(part => part[0]).join('') : "";
-                            } else {
-                                let translations = json.translations;
-                                toText = (translations && translations.length > 0) ? translations[0].text : "";
+            try {
+                this._httpSession.send_and_read_async(
+                    message,
+                    GLib.PRIORITY_DEFAULT,
+                    cancellable,
+                    (session, result) => {
+                        let resBytes;
+                        try {
+                            resBytes = session.send_and_read_finish(result);
+                        } catch (e) {
+                            if (!this._destroyed && !cancellable?.is_cancelled()) {
+                                Main.notify("Fast Translate", `Error: ${e.message || e}`);
                             }
-                            callback(toText);
-                        } else if (this._translation_service === 1 && (message.status_code === 403 || message.status_code === 429)) {
-                            Main.notify("Fast Translate", _("Rate-limited or blocked by Google Translate. Please try again later."));
-                        } else if (message.status_code === 403) {
-                            Main.notify("Fast Translate", _("Auth failed (403): check API key and URL in settings"));
-                        } else {
-                            Main.notify("Fast Translate", `Error: ${message.status_code}`);
+                            settle();
+                            return;
                         }
-                    } catch (e) {
-                        Main.notify("Fast Translate", `Error: ${e.message || e}`);
+
+                        if (this._destroyed) {
+                            settle();
+                            return;
+                        }
+                        try {
+                            if (message.status_code === 200) {
+                                let decoder = new TextDecoder("utf-8");
+                                let response = decoder.decode(resBytes.get_data());
+                                let json = JSON.parse(response);
+
+                                let toText = "";
+                                if (this._translation_service === 1) {
+                                    toText = (json && json[0]) ? json[0].map(part => part[0]).join('') : "";
+                                } else {
+                                    let translations = json.translations;
+                                    toText = (translations && translations.length > 0) ? translations[0].text : "";
+                                }
+                                callback(toText, this._translation_service === 1 ? json[2]
+                                        : json.translations?.[0]?.detected_source_language);
+                            } else if (this._translation_service === 1 && (message.status_code === 403 || message.status_code === 429)) {
+                                Main.notify("Fast Translate", _("Rate-limited or blocked by Google Translate. Please try again later."));
+                            } else if (message.status_code === 403) {
+                                Main.notify("Fast Translate", _("Auth failed (403): check API key and URL in settings"));
+                            } else {
+                                Main.notify("Fast Translate", `Error: ${message.status_code}`);
+                            }
+                        } catch (e) {
+                            Main.notify("Fast Translate", `Error: ${e.message || e}`);
+                        } finally {
+                            settle();
+                        }
                     }
+                );
+            } catch (e) {
+                if (!this._destroyed && !cancellable?.is_cancelled()) {
+                    Main.notify("Fast Translate", `Error: ${e.message || e}`);
                 }
-            );
+                settle();
+            }
         }
 
         _showError(messageText) {
@@ -1121,6 +1439,10 @@ var FastTranslate = GObject.registerClass(
                         return GLib.SOURCE_REMOVE;
                     });
                 }
+                this._speech.stop(this.sourceSpeechBtn);
+                this._speech.stop(this.targetSpeechBtn);
+                this._outputLanguage = this._detectedSource?.language || this._source_lang;
+                this._detectedSource = null;
                 const oldTargetLang = this._target_lang;
                 this._target_lang = this._source_lang;
                 this._source_lang = oldTargetLang;
@@ -1342,6 +1664,11 @@ var FastTranslate = GObject.registerClass(
             outputActions.add_child(this.copyBtn);
             outputWrapper.add_child(outputActions);
 
+            this.sourceSpeechBtn = addSpeechButton(inputWrapper, this.inputEntry.get_clutter_text(),
+                this._speech, () => this._detectedSource?.setting === this._source_lang && this._detectedSource?.text === this.inputEntry.get_text()
+                    ? this._detectedSource.language : this._source_lang, () => { this._detectedSource = null; });
+            this.targetSpeechBtn = addSpeechButton(outputWrapper, this.outputEntry.get_clutter_text(),
+                this._speech, () => this._outputLanguage ?? this._target_lang);
             container.add_child(outputWrapper);
 
             // Bind tooltips
@@ -1375,7 +1702,11 @@ var FastTranslate = GObject.registerClass(
             if (!fromText || fromText.trim() === "") {
                 return;
             }
-            this._translateText(true, fromText, (toText) => {
+            const sourceSetting = this._source_lang;
+            const outputLanguage = this._target_lang;
+            this._translateText(true, fromText, (toText, detectedLanguage) => {
+                this._detectedSource = {text: fromText, setting: sourceSetting, language: detectedLanguage || sourceSetting};
+                this._outputLanguage = outputLanguage;
                 this.outputEntry.get_clutter_text().set_text(toText);
                 if (this.autoCopySwitch.state === true) {
                     this._copyToClipboard(toText);
@@ -1524,6 +1855,9 @@ var FastTranslate = GObject.registerClass(
 
         destroy() {
             this._destroyed = true;
+            this._clearQuickTranslateRequestTimeout();
+            this._hideQuickTranslateLoading(null, true);
+            this._speech?.destroy();
             this._clearIdleSources();
             this._disconnectWidgetSignals();
             this._disconnectLanguageSelectorButtons();
@@ -1565,6 +1899,52 @@ var FastTranslate = GObject.registerClass(
     }
 );
 
+// Each binding owns its signals and tooltip; controller owns network/playback.
+function addSpeechButton(container, textActor, controller, getLanguage, onTextChanged = null) {
+    const row = new St.BoxLayout({x_align: Clutter.ActorAlign.END, reactive: true, track_hover: true});
+    const button = new St.Button({style_class: 'translate-action-btn',
+        track_hover: true, can_focus: true});
+    const icon = new St.Icon({icon_name: 'audio-speakers-symbolic', icon_size: 16});
+    button.set_child(icon);
+    row.add_child(button);
+    container.insert_child_at_index(row, 0);
+    let status = 'idle';
+    const description = () => !canSpeak(textActor.get_text())
+        ? _('Speech is available for text up to 500 characters')
+        : status === 'idle' ? _('Read aloud') : _('Stop reading');
+    const state = value => {
+        status = value;
+        icon.icon_name = value === 'idle' ? 'audio-speakers-symbolic'
+            : value === 'loading' ? 'content-loading-symbolic' : 'media-playback-stop-symbolic';
+        button.accessible_name = description();
+    };
+    const update = () => {
+        controller.stop(button);
+        const enabled = canSpeak(textActor.get_text());
+        button.reactive = enabled;
+        button.can_focus = enabled;
+        button.opacity = enabled ? 255 : 100;
+        button.accessible_name = description();
+    };
+    const changed = textActor.connect('text-changed', () => {
+        onTextChanged?.();
+        update();
+    });
+    const clicked = button.connect('clicked', () =>
+        controller.toggle(button, textActor.get_text(), getLanguage(), state));
+    const tooltip = new Tooltip(row, description);
+    button._speechTooltip = tooltip;
+    button.connect('destroy', () => {
+        controller.stop(button);
+        textActor.disconnect(changed);
+        button.disconnect(clicked);
+        tooltip.destroy();
+        button._speechTooltip = null;
+    });
+    update();
+    return button;
+}
+
 export default class FastTranslateExtension extends Extension {
     constructor(metadata) {
         super(metadata);
@@ -1585,8 +1965,328 @@ export default class FastTranslateExtension extends Extension {
     }
 }
 
+class QuickTranslateLoadingPopover {
+    constructor(onCancel = null, onRetry = null, pointerAnchor = null) {
+        this._destroyed = false;
+        this._overlayPressId = null;
+        this._retryClickedId = null;
+        this._firstPaintId = null;
+        this._expandFallbackId = null;
+        this._expanded = false;
+        this._firstSpinnerCycleComplete = false;
+        this._finishCallback = null;
+        this._spinnerRepaintId = null;
+        this._onCancel = onCancel;
+        this._onRetry = onRetry;
+        this.overlay = new St.Widget({
+            style_class: 'translate-loading-overlay',
+            reactive: true,
+            x: 0,
+            y: 0,
+            width: global.stage.width,
+            height: global.stage.height
+        });
+        Main.uiGroup.add_child(this.overlay);
+        this._overlayPressId = this.overlay.connect('button-press-event', () => {
+            this._onCancel?.();
+            return Clutter.EVENT_STOP;
+        });
+        this.actor = new St.BoxLayout({
+            style_class: 'translate-loading-popover',
+            reactive: true,
+            can_focus: false,
+            accessible_name: _("Translating…"),
+            y_align: Clutter.ActorAlign.CENTER
+        });
+
+        this.spinnerBox = new St.Widget({
+            style_class: 'translate-loading-spinner-box',
+            layout_manager: new Clutter.BinLayout(),
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER
+        });
+        this.spinner = new St.DrawingArea({
+            style_class: 'translate-loading-spinner',
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        this.spinner.set_size(18, 18);
+        // Clutter otherwise rotates around the actor's top-left corner,
+        // making the ring orbit inside the popover instead of spinning in place.
+        this.spinner.set_pivot_point(0.5, 0.5);
+        this._spinnerRepaintId = this.spinner.connect('repaint', area => {
+            const cr = area.get_context();
+            const size = 18;
+            const radius = 6.5;
+            cr.setSourceRGBA(0.21, 0.52, 0.89, 1);
+            cr.setLineWidth(2.5);
+            cr.setLineCap(1);
+            cr.arc(size / 2, size / 2, radius, -Math.PI / 2, Math.PI * 1.15);
+            cr.stroke();
+            cr.$dispose();
+        });
+        this.spinnerBox.add_child(this.spinner);
+        this.actor.add_child(this.spinnerBox);
+
+        this.label = new St.Label({
+            text: _("Translating…"),
+            style_class: 'translate-loading-label',
+            y_align: Clutter.ActorAlign.CENTER
+        });
+        this.label.opacity = 0;
+        this.actor.add_child(this.label);
+
+        this.retryButton = new St.Button({
+            label: _("Retry"),
+            style_class: 'translate-loading-retry-btn',
+            visible: false,
+            reactive: true,
+            can_focus: true,
+            y_align: Clutter.ActorAlign.CENTER
+        });
+        this.retryButton.opacity = 0;
+        this._retryClickedId = this.retryButton.connect('clicked', () => this._onRetry?.());
+        this.actor.add_child(this.retryButton);
+        Main.uiGroup.add_child(this.actor);
+
+        const [currentPointerX, currentPointerY] = global.get_pointer();
+        const pointerX = pointerAnchor?.x ?? currentPointerX;
+        const pointerY = pointerAnchor?.y ?? currentPointerY;
+        const monitorIndex = Math.max(0, Main.layoutManager.monitors.findIndex(monitor =>
+            pointerX >= monitor.x && pointerX < monitor.x + monitor.width &&
+            pointerY >= monitor.y && pointerY < monitor.y + monitor.height
+        ));
+        const monitor = Main.layoutManager.monitors[monitorIndex] ??
+            Main.layoutManager.primaryMonitor;
+        const workArea = Main.layoutManager.getWorkAreaForMonitor(monitorIndex) ?? monitor;
+        this._pointerX = pointerX;
+        this._pointerY = pointerY;
+        this._workArea = workArea;
+        this._gap = 16;
+        this._compactSize = 36;
+        this.actor.set_style('height: 36px; padding: 0px; spacing: 0px;');
+        this.actor.set_size(this._compactSize, this._compactSize);
+        this.spinnerBox.set_size(this._compactSize, this._compactSize);
+        const [compactX, compactY] = this._positionForWidth(this._compactSize, false);
+        this.actor.set_position(compactX, compactY);
+
+        // The compact spinner must be painted before its expansion starts.
+        // Otherwise Clutter coalesces both states into one frame and users only
+        // see the delayed, wide popover. A short fallback keeps the UI moving
+        // if a compositor does not emit after-paint (e.g. a nested test shell).
+        this._firstPaintId = global.stage.connect('after-paint', () => this._startExpansion());
+        this._expandFallbackId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 32, () => {
+            this._expandFallbackId = null;
+            this._startExpansion();
+            return GLib.SOURCE_REMOVE;
+        });
+        this.actor.queue_relayout();
+        this.actor.queue_redraw();
+        this.spinner.queue_repaint();
+    }
+
+    _positionForWidth(width, expandLeft) {
+        const workArea = this._workArea;
+        const minX = workArea.x + 8;
+        const maxX = workArea.x + workArea.width - width - 8;
+        const minY = workArea.y + 8;
+        const maxY = workArea.y + workArea.height - this._compactSize - 8;
+        let x = expandLeft
+            ? this._pointerX - this._gap - width
+            : this._pointerX + this._gap;
+        let y = this._pointerY + this._gap;
+        if (y > maxY)
+            y = this._pointerY - this._gap - this._compactSize;
+        return [
+            Math.round(Math.max(minX, Math.min(x, Math.max(minX, maxX)))),
+            Math.round(Math.max(workArea.y + 8, Math.min(y, Math.max(workArea.y + 8, maxY)))),
+        ];
+    }
+
+    getPosition() {
+        if (!this.actor) return null;
+        return {x: this.actor.x, y: this.actor.y};
+    }
+
+    _contentWidth(includeRetry = false) {
+        this.label.ensure_style();
+        const labelWidth = this.label.get_preferred_width(-1)[1];
+        let width = this._compactSize + 6 + labelWidth + 12;
+        if (includeRetry) {
+            this.retryButton.ensure_style();
+            width += 6 + this.retryButton.get_preferred_width(-1)[1];
+        }
+        return Math.min(
+            Math.max(this._compactSize, Math.ceil(width)),
+            Math.max(this._compactSize, this._workArea.width - 16)
+        );
+    }
+
+    _startExpansion() {
+        if (this._destroyed || this._expanded || !this.actor) return;
+        this._expanded = true;
+        if (this._firstPaintId) {
+            try { global.stage.disconnect(this._firstPaintId); } catch (e) {}
+            this._firstPaintId = null;
+        }
+        if (this._expandFallbackId) {
+            GLib.Source.remove(this._expandFallbackId);
+            this._expandFallbackId = null;
+        }
+
+        const width = this._contentWidth(false);
+        const expandsLeft = this._pointerX + this._gap + width >
+            this._workArea.x + this._workArea.width - 8;
+        const [expandedX] = this._positionForWidth(width, expandsLeft);
+        this.actor.set_style('height: 40px; padding: 0px 6px; spacing: 6px;');
+        this.actor.ease({
+            width,
+            x: expandsLeft ? expandedX : this.actor.x,
+            duration: QUICK_TRANSLATE_EXPAND_DURATION_MS,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+        this.label.ease({
+            opacity: 255,
+            duration: Math.floor(QUICK_TRANSLATE_EXPAND_DURATION_MS / 2),
+            delay: Math.floor(QUICK_TRANSLATE_EXPAND_DURATION_MS / 2),
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+        this._startSpinnerCycle();
+    }
+
+    _startSpinnerCycle() {
+        if (this._destroyed || !this.spinner)
+            return;
+        if (this._firstSpinnerCycleComplete && this._finishCallback) {
+            const finish = this._finishCallback;
+            this._finishCallback = null;
+            finish();
+            return;
+        }
+        this.spinner.rotation_angle_z = 0;
+        this.spinner.ease({
+            rotation_angle_z: 360,
+            duration: QUICK_TRANSLATE_SPINNER_CYCLE_MS,
+            mode: Clutter.AnimationMode.LINEAR,
+            onComplete: () => {
+                if (this._destroyed || !this.spinner) return;
+                this.spinner.rotation_angle_z = 0;
+                this._firstSpinnerCycleComplete = true;
+                if (this._finishCallback) {
+                    const finish = this._finishCallback;
+                    this._finishCallback = null;
+                    finish();
+                    return;
+                }
+                this._startSpinnerCycle();
+            },
+        });
+    }
+
+    finish(callback) {
+        if (this._destroyed) {
+            callback();
+            return;
+        }
+        this._finishCallback = callback;
+        if (this._firstSpinnerCycleComplete) {
+            this._finishCallback = null;
+            callback();
+        }
+    }
+
+    _resizeForContent(includeRetry = false) {
+        if (this._destroyed || !this.actor) return;
+        this._startExpansion();
+        const width = this._contentWidth(includeRetry);
+        const expandsLeft = this._pointerX + this._gap + width >
+            this._workArea.x + this._workArea.width - 8;
+        const [x] = this._positionForWidth(width, expandsLeft);
+        this.actor.ease({
+            width,
+            x: expandsLeft ? x : this.actor.x,
+            duration: 150,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+    }
+
+    showSlowMessage() {
+        if (this._destroyed || !this.label) return;
+        this.label.text = _("Still translating…");
+        this._resizeForContent(false);
+    }
+
+    showRetry() {
+        if (this._destroyed || !this.label) return;
+        this.spinner?.remove_all_transitions();
+        this.label.text = _("Translation timed out");
+        if (this.retryButton) {
+            this.retryButton.visible = true;
+            this.retryButton.ease({
+                opacity: 255,
+                duration: 150,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+        }
+        this._resizeForContent(true);
+    }
+
+    destroy() {
+        if (this._destroyed) return;
+        this._destroyed = true;
+
+        if (this._firstPaintId) {
+            try { global.stage.disconnect(this._firstPaintId); } catch (e) {}
+            this._firstPaintId = null;
+        }
+        if (this._expandFallbackId) {
+            GLib.Source.remove(this._expandFallbackId);
+            this._expandFallbackId = null;
+        }
+        if (this.overlay && this._overlayPressId) {
+            try { this.overlay.disconnect(this._overlayPressId); } catch (e) {}
+            this._overlayPressId = null;
+        }
+        if (this.retryButton && this._retryClickedId) {
+            try { this.retryButton.disconnect(this._retryClickedId); } catch (e) {}
+            this._retryClickedId = null;
+        }
+        if (this.spinner && this._spinnerRepaintId) {
+            try { this.spinner.disconnect(this._spinnerRepaintId); } catch (e) {}
+            this._spinnerRepaintId = null;
+        }
+        if (this.spinner) {
+            this.spinner.remove_all_transitions();
+            this.spinner.destroy();
+            this.spinner = null;
+        }
+        if (this.spinnerBox) {
+            this.spinnerBox.destroy();
+            this.spinnerBox = null;
+        }
+        if (this.label) {
+            this.label.destroy();
+            this.label = null;
+        }
+        if (this.retryButton) {
+            this.retryButton.destroy();
+            this.retryButton = null;
+        }
+        if (this.overlay) {
+            this.overlay.destroy();
+            this.overlay = null;
+        }
+        if (this.actor) {
+            this.actor.destroy();
+            this.actor = null;
+        }
+        this._onCancel = null;
+        this._onRetry = null;
+    }
+}
+
 class FloatingTranslationWindow {
-    constructor(sourceText, targetText, sourceLang, targetLang, onDestroy, onCopyClicked, settings) {
+    constructor(sourceText, targetText, sourceLang, targetLang, onDestroy, onCopyClicked, settings, speech = null, positionOverride = null) {
         this._onDestroy = onDestroy;
         this._settings = settings;
         // Widget handler IDs, explicitly disconnected in destroy().
@@ -1675,6 +2375,14 @@ class FloatingTranslationWindow {
         srcScroll.add_child(srcBox);
         this.actor.add_child(srcScroll);
 
+        if (speech) {
+            const sourceContainer = new St.BoxLayout({vertical: true});
+            this.actor.remove_child(srcScroll);
+            sourceContainer.add_child(srcScroll);
+            this.sourceSpeechBtn = addSpeechButton(sourceContainer, srcLabel.get_clutter_text(), speech, () => sourceLang);
+            this.actor.add_child(sourceContainer);
+        }
+
         // Divider 2
         let divider2 = new St.Widget({
             style_class: 'translate-floating-divider'
@@ -1703,6 +2411,14 @@ class FloatingTranslationWindow {
         destBox.add_child(destLabel);
         destScroll.add_child(destBox);
         this.actor.add_child(destScroll);
+
+        if (speech) {
+            const targetContainer = new St.BoxLayout({vertical: true});
+            this.actor.remove_child(destScroll);
+            targetContainer.add_child(destScroll);
+            this.targetSpeechBtn = addSpeechButton(targetContainer, destLabel.get_clutter_text(), speech, () => targetLang);
+            this.actor.add_child(targetContainer);
+        }
 
         // Actions Row (Copy Button & Auto Copy Checkbox)
         let actions = new St.BoxLayout({
@@ -1777,7 +2493,9 @@ class FloatingTranslationWindow {
         this.actor.add_child(actions);
 
         // Compact adaptive translation popup
-        const [pointerX, pointerY] = global.get_pointer();
+        const [currentPointerX, currentPointerY] = global.get_pointer();
+        const pointerX = positionOverride?.x ?? currentPointerX;
+        const pointerY = positionOverride?.y ?? currentPointerY;
         const popupMonitorIndex = Math.max(0, Main.layoutManager.monitors.findIndex(monitor =>
             pointerX >= monitor.x && pointerX < monitor.x + monitor.width &&
             pointerY >= monitor.y && pointerY < monitor.y + monitor.height
