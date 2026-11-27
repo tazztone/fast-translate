@@ -222,3 +222,9 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 ## 🤝 Credits & Attribution
 
 This project is a fork of the original [atareao/translate-assistant](https://github.com/atareao/translate-assistant) extension by Lorenzo Carbonell Cerezo, licensed under the MIT License. Significant features (including Google Translate default backend, configurable Quick Translate, background mode, inline flag-emoji grid selection, high-DPI scaling, and integration tests) were added in this fork.
+
+### Read aloud
+
+Use the speaker at the top right of either text block in the panel or floating window to hear the original or translation. Click again to stop, or click the other speaker to switch. Speech is available only for nonempty text up to 500 Unicode characters; longer text is never truncated or sent for speech.
+
+Speech uses the unofficial Google Translate online service without an API key, including when DeepL handles translation. Text is sent only after clicking the speaker; automatic language detection may also send it to Google. Service availability and supported languages can change. Install `gst-play-1.0` (commonly in `gstreamer1.0-plugins-base-apps`) and GStreamer MP3/audio output plugins. Temporary audio is removed when playback finishes or stops.
